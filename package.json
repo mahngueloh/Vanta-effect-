@@ -1,0 +1,35 @@
+{
+  "name": "mahngueloh-vanta",
+  "version": "3.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "postinstall": "node scripts/ensure-env.js && (pip3 install -q --upgrade yt-dlp --break-system-packages 2>/dev/null || pip3 install -q --upgrade yt-dlp 2>/dev/null || python3 -m pip install -q --upgrade yt-dlp --break-system-packages 2>/dev/null || python3 -m pip install -q --upgrade yt-dlp 2>/dev/null || true)"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@img/sharp-wasm32": "^0.35.3",
+    "@vreden/youtube_scraper": "1.2.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc.13",
+    "axios": "^1.6.0",
+    "dotenv": "^16.4.5",
+    "form-data": "^4.0.0",
+    "pino": "^8.21.0",
+    "ruhend-scraper": "^10.0.3",
+    "sharp": "^0.35.3",
+    "spencer-btns": "^1.0.1",
+    "wa-sticker-formatter": "^4.0.3",
+    "youtube-sr": "^4.3.11"
+  },
+  "overrides": {
+    "sharp": "$sharp",
+    "libsignal": "^6.0.0"
+  },
+  "allowScripts": {
+    "sharp@0.35.3": true,
+    "esbuild@0.27.7": true,
+    "@whiskeysockets/baileys@7.0.0-rc14": true,
+    "protobufjs@7.6.6": true
+  }
+}

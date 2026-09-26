@@ -1,0 +1,24 @@
+{
+  "name": "Mahngueloh Vanta",
+  "description": "Custom WhatsApp bot with AI, sports, news, downloader, and admin tools.",
+  "repository": "https://github.com/mahngueloh/Vanta-effect-.git",
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "npm install"
+  },
+  "deploy": {
+    "startCommand": "node index.js",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  },
+  "variables": {
+    "SESSION_ID": {
+      "description": "Your WhatsApp session ID from https://mahngueloh-md-session.onrender.com/. Leave blank if using PHONE_NUMBER instead.",
+      "required": false
+    },
+    "PHONE_NUMBER": {
+      "description": "Your WhatsApp number, digits only, with country code, no +. Leave blank if using SESSION_ID instead.",
+      "required": false
+    }
+  }
+}
