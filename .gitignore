@@ -1,0 +1,8 @@
+node_modules/
+auth_info/
+session_backup/
+tmp/
+*.log
+.npm/
+settings.json
+data/chatbrain.json
