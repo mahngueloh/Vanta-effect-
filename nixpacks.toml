@@ -1,0 +1,9 @@
+# Makes yt-dlp and ffmpeg available as real system binaries, in both the
+# build AND the running container — not just during build. This replaces
+# relying on pip3/pip/curl/wget at runtime (plugins/downloader.js still has
+# that as a backup, but it depends on tools this base image may not have at
+# all, which is exactly what was failing: "yt-dlp auto-install failed").
+# "..." keeps whatever Nixpacks already auto-detects for a Node project
+# (nodejs, npm) — this only ADDS to that, it doesn't replace it.
+[phases.setup]
+nixPkgs = ["...", "yt-dlp", "ffmpeg"]
