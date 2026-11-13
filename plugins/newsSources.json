@@ -1,0 +1,238 @@
+{
+  "sources": [
+    {
+      "id": "techweez",
+      "name": "Techweez Kenya",
+      "type": "rss",
+      "url": "https://techweez.com/feed/",
+      "category": "TECH",
+      "domain": "techweez.com",
+      "enabled": true
+    },
+    {
+      "id": "dignited",
+      "name": "Dignited",
+      "type": "rss",
+      "url": "https://www.dignited.com/feed/",
+      "category": "DIGITAL",
+      "domain": "dignited.com",
+      "enabled": true
+    },
+    {
+      "id": "techpoint-africa",
+      "name": "Techpoint Africa",
+      "type": "rss",
+      "url": "https://techpoint.africa/feed/",
+      "category": "TECH",
+      "domain": "techpoint.africa",
+      "enabled": true
+    },
+    {
+      "id": "kenyan-wall-street",
+      "name": "Kenyan Wall Street",
+      "type": "rss",
+      "url": "https://kenyanwallstreet.com/feed/",
+      "category": "BUSINESS",
+      "domain": "kenyanwallstreet.com",
+      "enabled": false
+    },
+    {
+      "id": "nation-kenya",
+      "name": "Nation Africa Kenya",
+      "type": "rss",
+      "url": "https://nation.africa/kenya/rss.xml",
+      "category": "KENYA",
+      "domain": "nation.africa",
+      "enabled": true
+    },
+    {
+      "id": "standard-media",
+      "name": "The Standard Kenya",
+      "type": "rss",
+      "url": "https://www.standardmedia.co.ke/rss/headlines.php",
+      "category": "KENYA",
+      "domain": "standardmedia.co.ke",
+      "enabled": true
+    },
+    {
+      "id": "citizen-digital",
+      "name": "Citizen Digital",
+      "type": "rss",
+      "url": "https://www.citizen.digital/feed",
+      "category": "KENYA",
+      "domain": "citizen.digital",
+      "enabled": false
+    },
+    {
+      "id": "kenyans-politics",
+      "name": "Kenyans.co.ke",
+      "type": "rss",
+      "url": "https://www.kenyans.co.ke/feeds/news",
+      "category": "POLITICS",
+      "domain": "kenyans.co.ke",
+      "enabled": true
+    },
+    {
+      "id": "capital-fm",
+      "name": "Capital FM Kenya",
+      "type": "rss",
+      "url": "https://www.capitalfm.co.ke/news/feed/",
+      "category": "KENYA",
+      "domain": "capitalfm.co.ke",
+      "enabled": true
+    },
+    {
+      "id": "tuko-ke",
+      "name": "Tuko Kenya",
+      "type": "rss",
+      "url": "https://www.tuko.co.ke/rss/",
+      "category": "KENYA",
+      "domain": "tuko.co.ke",
+      "enabled": false
+    },
+    {
+      "id": "bbc-football",
+      "name": "BBC Sport Football",
+      "type": "rss",
+      "url": "https://feeds.bbci.co.uk/sport/football/rss.xml",
+      "category": "SPORT",
+      "domain": "bbc.com/sport",
+      "enabled": true
+    },
+    {
+      "id": "sky-sports-football",
+      "name": "Sky Sports Football",
+      "type": "rss",
+      "url": "https://www.skysports.com/rss/12040",
+      "category": "SPORT",
+      "domain": "skysports.com",
+      "enabled": true
+    },
+    {
+      "id": "guardian-football",
+      "name": "The Guardian Football",
+      "type": "rss",
+      "url": "https://www.theguardian.com/football/rss",
+      "category": "SPORT",
+      "domain": "theguardian.com",
+      "enabled": true
+    },
+    {
+      "id": "mpasho",
+      "name": "Mpasho Kenya",
+      "type": "rss",
+      "url": "https://www.mpasho.co.ke/feed/",
+      "category": "ENTERTAINMENT",
+      "domain": "mpasho.co.ke",
+      "enabled": true
+    },
+    {
+      "id": "nairobiwire",
+      "name": "Nairobi Wire",
+      "type": "rss",
+      "url": "https://nairobiwire.com/feed/",
+      "category": "ENTERTAINMENT",
+      "domain": "nairobiwire.com",
+      "enabled": true
+    },
+    {
+      "id": "hotdog-ke",
+      "name": "Hot Dog Kenya",
+      "type": "rss",
+      "url": "https://www.hotdog.co.ke/feed/",
+      "category": "ENTERTAINMENT",
+      "domain": "hotdog.co.ke",
+      "enabled": false
+    },
+    {
+      "id": "youtube-blog",
+      "name": "YouTube Official Blog",
+      "type": "rss",
+      "url": "https://blog.youtube/rss/",
+      "category": "CREATORS",
+      "domain": "blog.youtube",
+      "enabled": true
+    },
+    {
+      "id": "social-media-today",
+      "name": "Social Media Today",
+      "type": "rss",
+      "url": "https://www.socialmediatoday.com/rss/",
+      "category": "CREATORS",
+      "domain": "socialmediatoday.com",
+      "enabled": false
+    },
+    {
+      "id": "influencer-marketing-hub",
+      "name": "Influencer Marketing Hub",
+      "type": "rss",
+      "url": "https://influencermarketinghub.com/feed/",
+      "category": "CREATORS",
+      "domain": "influencermarketinghub.com",
+      "enabled": true
+    },
+    {
+      "id": "tubefilter",
+      "name": "Tubefilter",
+      "type": "rss",
+      "url": "https://www.tubefilter.com/feed/",
+      "category": "CREATORS",
+      "domain": "tubefilter.com",
+      "enabled": true
+    },
+    {
+      "id": "creator-economy",
+      "name": "Creator Economy Report",
+      "type": "rss",
+      "url": "https://creatoreconomy.so/feed",
+      "category": "CREATORS",
+      "domain": "creatoreconomy.so",
+      "enabled": true
+    },
+    {
+      "id": "later-blog",
+      "name": "Later \u2014 Social Media Tips",
+      "type": "rss",
+      "url": "https://later.com/blog/feed/",
+      "category": "CREATORS",
+      "domain": "later.com",
+      "enabled": false
+    },
+    {
+      "id": "buffer-blog",
+      "name": "Buffer Blog",
+      "type": "rss",
+      "url": "https://buffer.com/resources/feed/",
+      "category": "CREATORS",
+      "domain": "buffer.com",
+      "enabled": true
+    },
+    {
+      "id": "hootsuite-blog",
+      "name": "Hootsuite Blog",
+      "type": "rss",
+      "url": "https://blog.hootsuite.com/feed/",
+      "category": "CREATORS",
+      "domain": "hootsuite.com",
+      "enabled": true
+    },
+    {
+      "id": "techcrunch",
+      "name": "TechCrunch",
+      "type": "rss",
+      "url": "https://techcrunch.com/feed/",
+      "category": "TECH",
+      "domain": "techcrunch.com",
+      "enabled": true
+    },
+    {
+      "id": "the-verge",
+      "name": "The Verge",
+      "type": "rss",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "category": "TECH",
+      "domain": "theverge.com",
+      "enabled": true
+    }
+  ]
+}
