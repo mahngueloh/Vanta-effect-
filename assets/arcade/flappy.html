@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Flappy Bird</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b141a;color:#fff;font-family:system-ui,Segoe UI,Roboto,sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}#wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}canvas{display:block;border-radius:16px;box-shadow:0 0 0 4px #1f2c34,0 10px 40px #0008}.hud{display:flex;gap:10px;font-weight:700;font-size:14px;letter-spacing:.5px}.pill{background:#1f2c34;padding:6px 12px;border-radius:999px}.btn{background:#00e5ff;color:#001;border:0;border-radius:12px;padding:14px 22px;font-size:18px;font-weight:800}.ctl{display:flex;gap:10px;width:min(92vw,360px)}.ctl button{flex:1;padding:16px 0;border:0;border-radius:14px;background:#1f2c34;color:#fff;font-size:18px;font-weight:800}.ctl button:active{background:#00a884}#ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#000a;text-align:center}#ov h1{margin:0;font-size:34px}#ov p{margin:0;font-size:20px}</style></head><body><div id="wrap"><div class="hud"><span class="pill">🐦 FLAPPY BIRD</span><span class="pill">⭐ <b id="s">0</b></span><span class="pill">🏆 <b id="b">0</b></span></div><canvas id="c" width="360" height="600"></canvas></div><div id="ov"><h1>GAME OVER</h1><p id="fs"></p><button class="btn" id="go">PLAY AGAIN</button></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),W=360,H=600,G=70,GAP=150;
+function fit(){const h=Math.min(innerHeight-120,innerWidth*600/360);c.style.height=h+'px';c.style.width=h*360/600+'px'}fit();addEventListener('resize',fit);
+let best=0;try{best=+localStorage.getItem('fb_best')||0}catch(e){}
+let y,v,pipes,t,score,state,deadAt;
+const S=document.getElementById('s'),B=document.getElementById('b'),OV=document.getElementById('ov');B.textContent=best;
+function reset(){y=270;v=0;pipes=[];t=0;score=0;state='ready';S.textContent=0;OV.style.display='none'}
+function die(){if(state==='dead')return;state='dead';deadAt=Date.now();if(score>best){best=score;try{localStorage.setItem('fb_best',best)}catch(e){}}B.textContent=best;document.getElementById('fs').textContent='Score '+score+' · Best '+best;OV.style.display='flex'}
+function flap(e){if(e&&e.target&&e.target.id==='go')return;if(state==='dead')return;state='play';v=-7.4}
+addEventListener('pointerdown',flap);addEventListener('keydown',e=>{if(e.code==='Space'||e.key==='ArrowUp'){e.preventDefault();flap()}});
+document.getElementById('go').addEventListener('click',()=>{if(Date.now()-deadAt>300)reset()});
+function step(){
+  if(state==='play'){v+=.42;y+=v;t++;
+    if(t%88===1)pipes.push({x:W,g:60+Math.random()*(H-G-GAP-120),d:0});
+    for(const p of pipes){p.x-=2.5;if(!p.d&&p.x+54<90){p.d=1;score++;S.textContent=score}
+      if(90+13>p.x&&90-13<p.x+54&&(y-13<p.g||y+13>p.g+GAP))die()}
+    pipes=pipes.filter(p=>p.x>-60);
+    if(y+13>H-G||y-13<0)die();
+  } else if(state==='ready'){y=270+Math.sin(Date.now()/200)*8}
+}
+function draw(){
+  const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#38d6e6');g.addColorStop(1,'#8defee');x.fillStyle=g;x.fillRect(0,0,W,H);
+  x.fillStyle='#fff';for(const[cx,cy,r]of[[60,90,26],[250,150,32],[330,60,20]]){x.beginPath();x.arc(cx,cy,r,0,7);x.arc(cx+r,cy+6,r*.8,0,7);x.arc(cx-r,cy+8,r*.7,0,7);x.fill()}
+  for(const p of pipes){x.fillStyle='#4cc23a';x.fillRect(p.x,0,54,p.g);x.fillRect(p.x,p.g+GAP,54,H);x.fillStyle='#2f8f22';x.fillRect(p.x-4,p.g-22,62,22);x.fillRect(p.x-4,p.g+GAP,62,22)}
+  x.fillStyle='#e8d98b';x.fillRect(0,H-G,W,G);x.fillStyle='#d4c066';for(let i=-(t*2.5%40);i<W;i+=40)x.fillRect(i,H-G,20,14);
+  x.save();x.translate(90,y);x.rotate(Math.max(-.5,Math.min(1.1,v/10)));x.fillStyle='#ffd23f';x.beginPath();x.arc(0,0,14,0,7);x.fill();x.fillStyle='#fff';x.beginPath();x.arc(6,-5,5,0,7);x.fill();x.fillStyle='#000';x.beginPath();x.arc(8,-5,2,0,7);x.fill();x.fillStyle='#ff7a00';x.fillRect(10,2,12,6);x.restore();
+  if(state==='ready'){x.fillStyle='#0008';x.fillRect(60,H/2-50,240,70);x.fillStyle='#fff';x.font='bold 24px system-ui';x.textAlign='center';x.fillText('TAP TO FLAP',W/2,H/2-8)}
+  x.fillStyle='#fff';x.strokeStyle='#0006';x.lineWidth=5;x.font='bold 56px system-ui';x.textAlign='center';x.strokeText(score,W/2,90);x.fillText(score,W/2,90);
+}
+reset();(function loop(){step();draw();requestAnimationFrame(loop)})();
+</script></body></html>

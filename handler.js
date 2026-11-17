@@ -53,6 +53,7 @@ const { codeAgentReply, rememberCommand, refreshCommand, getAgentStatus } = requ
 const { handleAdult }           = require('./plugins/adult')
 const { downloadMedia, downloadApk } = require('./plugins/downloader')
 const { gameCmds, handleGame }   = require('./plugins/games')
+const { arcadeCmds, handleArcade } = require('./plugins/arcade')
 const { aiReply }               = require('./plugins/aiChat')
 const { selfCodeReply }         = require('./plugins/selfCode')
 const { getStatus: getAiStatus } = require('./lib/aiProviders')
@@ -397,7 +398,7 @@ async function handleMessage(sock, msg) {
         // Always a silent drop now — no "Slow down" text in groups or DMs.
         // Cooldown tracking itself stays (still throttles command spam), only
         // the visible message is gone.
-        if (!owner && isCmd && cmd && !gameCmds.has(cmd)) {
+        if (!owner && isCmd && cmd && !gameCmds.has(cmd) && !arcadeCmds.has(cmd)) {
             const wait = checkCooldown(sender, cmd)
             if (wait > 0) return
         }
@@ -469,6 +470,9 @@ async function handleMessage(sock, msg) {
 
         // ── Games: .games .ttt .c4 .hm .guess .memory .mines .2048 .slots .rps .quiz .lights .slide ──
         // Un-decorated socket so boards don't get the joke tagline; exempt from the 3 s cooldown above.
+        if (arcadeCmds.has(cmd)) {
+            return handleArcade(plainSock, from, cmd, args, msg, sender)
+        }
         if (gameCmds.has(cmd)) {
             return handleGame(plainSock, from, cmd, args, msg, sender)
         }

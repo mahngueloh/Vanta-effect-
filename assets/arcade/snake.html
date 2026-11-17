@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Snake</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b141a;color:#fff;font-family:system-ui,Segoe UI,Roboto,sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}#wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}canvas{display:block;border-radius:16px;box-shadow:0 0 0 4px #1f2c34,0 10px 40px #0008}.hud{display:flex;gap:10px;font-weight:700;font-size:14px;letter-spacing:.5px}.pill{background:#1f2c34;padding:6px 12px;border-radius:999px}.btn{background:#00e5ff;color:#001;border:0;border-radius:12px;padding:14px 22px;font-size:18px;font-weight:800}.ctl{display:flex;gap:10px;width:min(92vw,360px)}.ctl button{flex:1;padding:16px 0;border:0;border-radius:14px;background:#1f2c34;color:#fff;font-size:18px;font-weight:800}.ctl button:active{background:#00a884}#ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#000a;text-align:center}#ov h1{margin:0;font-size:34px}#ov p{margin:0;font-size:20px}</style></head><body><div id="wrap"><div class="hud"><span class="pill">🐍 SNAKE</span><span class="pill">SCORE <b id="s">0</b></span><span class="pill">🏆 <b id="b">0</b></span></div><canvas id="c" width="360" height="360"></canvas><div class="ctl" style="flex-wrap:wrap;justify-content:center"><button id="u" style="flex:1 1 100%">▲</button><button id="l">◀</button><button id="d">▼</button><button id="r">▶</button></div></div><div id="ov"><h1>GAME OVER</h1><p id="fs"></p><button class="btn" id="go">PLAY AGAIN</button></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),N=18,Z=20;
+function fit(){const s=Math.min(innerWidth-20,innerHeight-260,360);c.style.width=c.style.height=s+'px'}fit();addEventListener('resize',fit);
+let best=0;try{best=+localStorage.getItem('sn_best')||0}catch(e){}
+const S=document.getElementById('s'),B=document.getElementById('b'),OV=document.getElementById('ov');B.textContent=best;
+let sn,dir,nd,food,score,over,timer,started;
+function place(){do{food={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}}while(sn.some(p=>p.x===food.x&&p.y===food.y))}
+function reset(){sn=[{x:9,y:9},{x:8,y:9},{x:7,y:9}];dir=nd={x:1,y:0};score=0;over=false;started=false;S.textContent=0;OV.style.display='none';place();clearInterval(timer);timer=setInterval(step,120);draw()}
+function turn(dx,dy){if(over)return;started=true;if(dx===-dir.x&&dy===-dir.y)return;nd={x:dx,y:dy}}
+for(const[id,dx,dy]of[['u',0,-1],['d',0,1],['l',-1,0],['r',1,0]])document.getElementById(id).addEventListener('pointerdown',e=>{e.preventDefault();turn(dx,dy)});
+addEventListener('keydown',e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(m){e.preventDefault();turn(...m)}});
+let sx,sy;c.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY});c.addEventListener('pointerup',e=>{const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;Math.abs(dx)>Math.abs(dy)?turn(dx>0?1:-1,0):turn(0,dy>0?1:-1)});
+document.getElementById('go').addEventListener('click',reset);
+function die(){over=true;clearInterval(timer);if(score>best){best=score;try{localStorage.setItem('sn_best',best)}catch(e){}}B.textContent=best;document.getElementById('fs').textContent='Score '+score+' · Best '+best;OV.style.display='flex'}
+function step(){if(over||!started)return;dir=nd;const h={x:sn[0].x+dir.x,y:sn[0].y+dir.y};
+  if(h.x<0||h.y<0||h.x>=N||h.y>=N||sn.some(p=>p.x===h.x&&p.y===h.y))return die();
+  sn.unshift(h);if(h.x===food.x&&h.y===food.y){score++;S.textContent=score;place()}else sn.pop();draw()}
+function draw(){x.fillStyle='#10201a';x.fillRect(0,0,360,360);x.fillStyle='#14281f';for(let i=0;i<N;i++)for(let j=0;j<N;j++)if((i+j)%2)x.fillRect(i*Z,j*Z,Z,Z);
+  x.fillStyle='#ff5252';x.beginPath();x.arc(food.x*Z+10,food.y*Z+10,8,0,7);x.fill();
+  sn.forEach((p,i)=>{x.fillStyle=i?'#37d67a':'#a6ff9e';x.beginPath();x.roundRect(p.x*Z+1,p.y*Z+1,Z-2,Z-2,6);x.fill()});
+  if(!started){x.fillStyle='#0008';x.fillRect(60,150,240,60);x.fillStyle='#fff';x.font='bold 20px system-ui';x.textAlign='center';x.fillText('SWIPE or TAP ARROWS',180,186)}}
+reset();
+</script></body></html>

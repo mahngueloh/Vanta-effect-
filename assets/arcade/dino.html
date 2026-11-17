@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Dino Run</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b141a;color:#fff;font-family:system-ui,Segoe UI,Roboto,sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}#wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}canvas{display:block;border-radius:16px;box-shadow:0 0 0 4px #1f2c34,0 10px 40px #0008}.hud{display:flex;gap:10px;font-weight:700;font-size:14px;letter-spacing:.5px}.pill{background:#1f2c34;padding:6px 12px;border-radius:999px}.btn{background:#00e5ff;color:#001;border:0;border-radius:12px;padding:14px 22px;font-size:18px;font-weight:800}.ctl{display:flex;gap:10px;width:min(92vw,360px)}.ctl button{flex:1;padding:16px 0;border:0;border-radius:14px;background:#1f2c34;color:#fff;font-size:18px;font-weight:800}.ctl button:active{background:#00a884}#ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#000a;text-align:center}#ov h1{margin:0;font-size:34px}#ov p{margin:0;font-size:20px}</style></head><body><div id="wrap"><div class="hud"><span class="pill">🦖 DINO RUN</span><span class="pill">SCORE <b id="s">0</b></span><span class="pill">🏆 <b id="b">0</b></span></div><canvas id="c" width="600" height="220"></canvas><p style="opacity:.7;margin:0">Tap / Space to jump · ↓ to duck</p></div><div id="ov"><h1>GAME OVER</h1><p id="fs"></p><button class="btn" id="go">PLAY AGAIN</button></div>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),W=600,H=220,GY=170;
+function fit(){const w=Math.min(innerWidth-16,600);c.style.width=w+'px';c.style.height=w*220/600+'px'}fit();addEventListener('resize',fit);
+let best=0;try{best=+localStorage.getItem('dn_best')||0}catch(e){}
+const S=document.getElementById('s'),B=document.getElementById('b'),OV=document.getElementById('ov');B.textContent=best;
+let y,vy,obs,t,score,sp,over,duck,deadAt,started;
+function reset(){y=GY;vy=0;obs=[];t=0;score=0;sp=6;over=false;duck=false;started=false;S.textContent=0;OV.style.display='none'}
+function jump(){if(over)return;started=true;if(y>=GY){vy=-12.5}}
+addEventListener('pointerdown',e=>{if(e.target.id==='go')return;jump()});
+addEventListener('keydown',e=>{if(e.code==='Space'||e.key==='ArrowUp'){e.preventDefault();jump()}if(e.key==='ArrowDown')duck=true});addEventListener('keyup',e=>{if(e.key==='ArrowDown')duck=false});
+document.getElementById('go').addEventListener('click',()=>{if(Date.now()-deadAt>300)reset()});
+function die(){over=true;deadAt=Date.now();const sc=Math.floor(score);if(sc>best){best=sc;try{localStorage.setItem('dn_best',best)}catch(e){}}B.textContent=best;document.getElementById('fs').textContent='Score '+sc+' · Best '+best;OV.style.display='flex'}
+function step(){if(over||!started)return;t++;sp=6+Math.min(7,t/500);score+=sp/10;S.textContent=Math.floor(score);
+  vy+=.7;y+=vy;if(y>GY){y=GY;vy=0}
+  if(--step.n<=0){const bird=score>150&&Math.random()<.3;obs.push(bird?{x:W,w:36,h:24,y:GY-48-(Math.random()<.5?0:18),b:1}:{x:W,w:18+Math.random()*22,h:30+Math.random()*26,y:GY,b:0});step.n=Math.max(38,90-t/30)+Math.random()*40}
+  const dw=duck&&y>=GY?44:30,dh=duck&&y>=GY?26:44,dx=60;
+  for(const o of obs){o.x-=sp;const top=o.b?o.y:GY-o.h,bot=o.b?o.y+o.h:GY;if(dx+dw-6>o.x&&dx+6<o.x+o.w&&y-dh+4<bot&&y>top)die()}
+  obs=obs.filter(o=>o.x>-50)}
+step.n=30;
+function draw(){x.fillStyle='#f7f7f7';x.fillRect(0,0,W,H);x.fillStyle='#535353';x.fillRect(0,GY,W,2);for(let i=0;i<20;i++)x.fillRect((i*67-(t*sp*.5)%67+W)%W,GY+8+(i%3)*6,12,2);
+  const dh=duck&&y>=GY?26:44,dw=duck&&y>=GY?44:30;x.fillStyle='#535353';x.fillRect(60,y-dh,dw,dh);if(!(duck&&y>=GY)){x.fillRect(75,y-dh-12,22,16);x.fillStyle='#fff';x.fillRect(88,y-dh-8,4,4);x.fillStyle='#535353'}
+  x.fillRect(60+((t>>3)&1?4:16),y,8,6);
+  for(const o of obs){x.fillStyle='#535353';if(o.b){x.fillRect(o.x,o.y+8,o.w,10);x.fillRect(o.x+8,o.y+((t>>3)&1?0:14),14,8)}else{x.fillRect(o.x+o.w/2-4,GY-o.h,8,o.h);x.fillRect(o.x,GY-o.h*.7,o.w/2,6);x.fillRect(o.x+o.w/2,GY-o.h*.5,o.w/2,6)}}
+  if(!started){x.fillStyle='#535353';x.font='bold 20px system-ui';x.textAlign='center';x.fillText('TAP TO START',W/2,90)}}
+reset();(function loop(){step();draw();requestAnimationFrame(loop)})();
+</script></body></html>
