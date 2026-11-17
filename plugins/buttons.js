@@ -27,7 +27,7 @@ async function sendButtonsDemo(sock, from, sender, msg, args) {
     const mod = await loadBtns()
     if (!btnsReady()) {
         return sock.sendMessage(from, {
-            text: fmt.error('Interactive buttons unavailable \u2014 spencer-btns is not installed. Run: npm install spencer-btns, then restart.'),
+            text: fmt.error('Interactive buttons unavailable \u2014 lib/btns.js failed to load. Check the logs.'),
         }, { quoted: msg })
     }
 

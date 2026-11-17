@@ -23,7 +23,6 @@
     "pino": "^8.21.0",
     "ruhend-scraper": "^10.0.3",
     "sharp": "^0.35.3",
-    "spencer-btns": "^1.0.1",
     "wa-sticker-formatter": "^4.0.3",
     "youtube-sr": "^4.3.11"
   },
