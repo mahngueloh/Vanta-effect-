@@ -499,20 +499,24 @@ const SESSION_SERVER_URL = (process.env.SESSION_SERVER_URL || 'https://mahnguelo
 // entirely if the pairing site itself is down or unreachable. Prefer the
 // MAHNGUELOH~ format for anything long-term; this one is fine for "pair
 // right now, immediately."
-async function fetchShortSessionBundle(sessionId) {
+async function fetchShortSessionBundle(sessionId, attempt = 1) {
+    // Free-tier hosts sleep when idle and can take ~a minute to wake up, so be
+    // patient and retry a couple of times before giving up.
+    const retry = async (why) => (attempt < 3 ? (await new Promise(r => setTimeout(r, 5000)), fetchShortSessionBundle(sessionId, attempt + 1)) : { ok: false, error: why })
     try {
         const ctrl = new AbortController()
-        const timer = setTimeout(() => ctrl.abort(), 15000)
+        const timer = setTimeout(() => ctrl.abort(), 60000)
         let res
         try {
             res = await fetch(`${SESSION_SERVER_URL}/api/session/${encodeURIComponent(sessionId)}`, { signal: ctrl.signal })
         } finally { clearTimeout(timer) }
         const data = await res.json().catch(() => ({}))
+        if (res.status >= 500) return retry(data?.error || `HTTP ${res.status}`)
         if (!res.ok) return { ok: false, error: data?.error || `HTTP ${res.status}` }
         if (!data?.bundle || typeof data.bundle !== 'object') return { ok: false, error: 'Server response had no session data' }
         return { ok: true, bundle: data.bundle }
     } catch (e) {
-        return { ok: false, error: e.name === 'AbortError' ? 'Timed out reaching the pairing server' : e.message }
+        return retry(e.name === 'AbortError' ? 'Timed out reaching the pairing server' : e.message)
     }
 }
 
@@ -581,9 +585,9 @@ async function restoreSessionFromConfig() {
 
     console.log(`[ SESSION ] Failed to restore session (${sessionId.length} chars received): ${decoded.error}`)
     if (isShort) {
-        console.log('[ SESSION ] This is an OLD short (MH~) session ID — those expired after ~30 minutes and')
-        console.log('[ SESSION ] could only be used once. Generate a new one on the pairing site: new IDs start')
-        console.log('[ SESSION ] with MAHNGUELOH~, never expire and need no network call to redeem.')
+        console.log('[ SESSION ] The pairing server could not return this short (MH~) session. If it says "not found",')
+        console.log('[ SESSION ] it is an OLD ID from before sessions became permanent — generate a new one on the')
+        console.log('[ SESSION ] pairing site. (MAHNGUELOH~ IDs are self-contained and never need the server.)')
     } else if (decoded.truncated) {
         console.log('[ SESSION ] This looks like the paste got cut off partway through — a real Session ID')
         console.log('[ SESSION ] is usually several thousand characters, and long console pastes on some')
@@ -598,7 +602,7 @@ function printLoginMenu(hasSessionId, hasPhone) {
     const C = { reset: '\x1b[0m', cyan: '\x1b[36m', yellow: '\x1b[33m', green: '\x1b[32m', magenta: '\x1b[35m', gray: '\x1b[90m', bold: '\x1b[1m' }
     console.log(`\n${C.bold}${C.cyan}No login configured yet — pick ONE of these${C.reset} :`)
     console.log(`${C.yellow}1.${C.reset} ${hasSessionId ? C.green + '✓' : C.gray + '✗'} Session ID${C.reset}  — get one from ${C.magenta}${SESSION_SERVER_URL}/${C.reset}`)
-    console.log(`   ${C.gray}(MAHNGUELOH~... never expires · old MH~... IDs expired and no longer work)${C.reset}`)
+    console.log(`   ${C.gray}(MH~... and MAHNGUELOH~... IDs both never expire · IDs made before this update do not work)${C.reset}`)
     console.log(`${C.yellow}2.${C.reset} ${hasPhone ? C.green + '✓' : C.gray + '✗'} Phone Number${C.reset}  — your WhatsApp number, digits only, with country code`)
     console.log(`\n${C.bold}Just paste either one right here in this console and press Enter.${C.reset}`)
     console.log(`${C.gray}(If this host doesn't forward console input, set it in config.js (sessionId) or .env (PHONE_NUMBER=) and hit Restart instead — either way works.)${C.reset}\n`)
