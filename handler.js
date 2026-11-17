@@ -42,7 +42,7 @@ function firePresenceIndicator(sock, from, inGroup) {
 }
 
 const { sendMenu }              = require('./plugins/menu')
-const { sendButtonsDemo }       = require('./plugins/buttons')
+const { sendButtonsDemo, sendButtonTest } = require('./plugins/buttons')
 const { getButtonAction, loadBtns, btnsReady } = require('./lib/buttons')
 const { sendContactCard }       = require('./plugins/contact')
 const { makeSticker }           = require('./plugins/sticker')
@@ -539,6 +539,11 @@ async function handleMessage(sock, msg) {
             // ════ CONTACT OWNER ═══════════════════════════════════════════════
             case 'contact':
                 await sendContactCard(sock, from, sender, msg)
+                break
+
+            case 'btntest':
+                if (!owner) { await sock.sendMessage(from, { text: 'Owner only.' }, { quoted: msg }); break }
+                await sendButtonTest(sock, from, sender, msg)
                 break
 
             case 'buttons': case 'btn':
