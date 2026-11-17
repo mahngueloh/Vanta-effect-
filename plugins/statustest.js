@@ -9,36 +9,27 @@ async function sendStatusTest(sock, from, msg) {
     const lid = sock.user?.lid ? cleanNum(sock.user.lid) + '@lid' : null
     const both = [pn, ...(lid ? [lid] : [])]
     const bg = '#0B141A'
+    const post = (text, extra, opts) => sock.sendMessage('status@broadcast', { text, ...extra, __noFun: true }, opts)
+    const raw = async (text, statusJidList) => {
+        const m = generateWAMessageFromContent('status@broadcast', { extendedTextMessage: { text, backgroundArgb: 0xFF0B141A, textArgb: 0xFFFFFFFF, font: 2 } }, { userJid: sock.user.id })
+        await sock.relayMessage('status@broadcast', m.message, { messageId: m.key.id, statusJidList })
+        return m
+    }
     const variants = [
-        ['phone-number JID only', () => sock.sendMessage('status@broadcast', { text: '', backgroundColor: bg, font: 2 }, { statusJidList: [pn] })],
-        ['LID only',              () => lid ? sock.sendMessage('status@broadcast', { text: '', backgroundColor: bg, font: 2 }, { statusJidList: [lid] }) : Promise.reject(new Error('no LID known'))],
-        ['both JIDs',             () => sock.sendMessage('status@broadcast', { text: '', backgroundColor: bg, font: 2 }, { statusJidList: both })],
-        ['both, no colour/font',  () => sock.sendMessage('status@broadcast', { text: '' }, { statusJidList: both })],
-        ['both, fresh metadata',  () => sock.sendMessage('status@broadcast', { text: '', backgroundColor: bg, font: 2 }, { statusJidList: both, useCachedGroupMetadata: false })],
-        ['raw relay',             async () => {
-            const m = generateWAMessageFromContent('status@broadcast', { extendedTextMessage: { text: '', backgroundArgb: 0xFF0B141A, textArgb: 0xFFFFFFFF, font: 2 } }, { userJid: sock.user.id })
-            await sock.relayMessage('status@broadcast', m.message, { messageId: m.key.id, statusJidList: both })
-            return m
-        }],
+        ['phone-number JID only', t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: [pn] })],
+        ['LID only',              t => lid ? post(t, { backgroundColor: bg, font: 2 }, { statusJidList: [lid] }) : Promise.reject(new Error('no LID known'))],
+        ['both JIDs',             t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: both })],
+        ['both, no colour/font',  t => post(t, {}, { statusJidList: both })],
+        ['both, fresh metadata',  t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: both, useCachedGroupMetadata: false })],
+        ['raw relay, both JIDs',  t => raw(t, both)],
+        ['raw relay, phone JID',  t => raw(t, [pn])],
     ]
     await sock.sendMessage(from, { text: `Posting ${variants.length} test statuses to ${both.join(', ')}. Then open WhatsApp → Updates → My status and tell me which numbers you see.` }, { quoted: msg })
     for (let i = 0; i < variants.length; i++) {
         const [label, run] = variants[i]
         const text = `Status test ${i + 1}/${variants.length}: ${label}`
         try {
-            // patch the text into whichever call shape this variant uses
-            const orig = sock.sendMessage
-            const res = await (async () => {
-                sock.sendMessage = (jid, content, opts) => orig.call(sock, jid, content.text === '' ? { ...content, text } : content, opts)
-                try {
-                    if (label === 'raw relay') {
-                        const m = generateWAMessageFromContent('status@broadcast', { extendedTextMessage: { text, backgroundArgb: 0xFF0B141A, textArgb: 0xFFFFFFFF, font: 2 } }, { userJid: sock.user.id })
-                        await sock.relayMessage('status@broadcast', m.message, { messageId: m.key.id, statusJidList: both })
-                        return m
-                    }
-                    return await run()
-                } finally { sock.sendMessage = orig }
-            })()
+            const res = await run(text)
             console.log(`[statustest] ${i + 1} (${label}) sent id=${res?.key?.id}`)
         } catch (e) {
             console.log(`[statustest] ${i + 1} (${label}) FAILED:`, e.stack || e.message)
