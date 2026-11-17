@@ -291,6 +291,7 @@ const log     = pino({ level: 'silent' })
 const seen    = new Set()
 const rateMap = new Map()
 let onlineSent = false, retries = 0, retryTimer = null, sock = null, bannerShown = false, statusReportShown = false, joinedUpdatesGroup = false, lastOpenAt = 0, quickDisconnectStreak = loadStreak()
+let replacedRetries = 0
 let connectPromise = null
 let socketGeneration = 0
 
@@ -580,10 +581,9 @@ async function restoreSessionFromConfig() {
 
     console.log(`[ SESSION ] Failed to restore session (${sessionId.length} chars received): ${decoded.error}`)
     if (isShort) {
-        console.log('[ SESSION ] Short (MH~) session IDs only work ONCE and expire ~30 minutes after they')
-        console.log('[ SESSION ] were generated. If this one was already used, or it\'s been a while,')
-        console.log('[ SESSION ] generate a fresh one and paste it again — or use a MAHNGUELOH~ session')
-        console.log('[ SESSION ] ID instead, which never expires and needs no network call to redeem.')
+        console.log('[ SESSION ] This is an OLD short (MH~) session ID — those expired after ~30 minutes and')
+        console.log('[ SESSION ] could only be used once. Generate a new one on the pairing site: new IDs start')
+        console.log('[ SESSION ] with MAHNGUELOH~, never expire and need no network call to redeem.')
     } else if (decoded.truncated) {
         console.log('[ SESSION ] This looks like the paste got cut off partway through — a real Session ID')
         console.log('[ SESSION ] is usually several thousand characters, and long console pastes on some')
@@ -598,7 +598,7 @@ function printLoginMenu(hasSessionId, hasPhone) {
     const C = { reset: '\x1b[0m', cyan: '\x1b[36m', yellow: '\x1b[33m', green: '\x1b[32m', magenta: '\x1b[35m', gray: '\x1b[90m', bold: '\x1b[1m' }
     console.log(`\n${C.bold}${C.cyan}No login configured yet — pick ONE of these${C.reset} :`)
     console.log(`${C.yellow}1.${C.reset} ${hasSessionId ? C.green + '✓' : C.gray + '✗'} Session ID${C.reset}  — get one from ${C.magenta}${SESSION_SERVER_URL}/${C.reset}`)
-    console.log(`   ${C.gray}(MAHNGUELOH~... never expires · MH~... is shorter but one-time use, ~30 min)${C.reset}`)
+    console.log(`   ${C.gray}(MAHNGUELOH~... never expires · old MH~... IDs expired and no longer work)${C.reset}`)
     console.log(`${C.yellow}2.${C.reset} ${hasPhone ? C.green + '✓' : C.gray + '✗'} Phone Number${C.reset}  — your WhatsApp number, digits only, with country code`)
     console.log(`\n${C.bold}Just paste either one right here in this console and press Enter.${C.reset}`)
     console.log(`${C.gray}(If this host doesn't forward console input, set it in config.js (sessionId) or .env (PHONE_NUMBER=) and hit Restart instead — either way works.)${C.reset}\n`)
@@ -806,6 +806,7 @@ async function connect() {
         }
 
         if (connection === 'open') {
+            replacedRetries = 0
             retries = 0
             lastOpenAt = Date.now()
             pairingRequested = false
@@ -934,7 +935,17 @@ async function connect() {
                 console.log('[ AUTH ] Connection replaced — this exact WhatsApp session is active somewhere else RIGHT NOW.')
                 console.log('[ AUTH ] This is not a bug here — stop the bot everywhere else it might still be running')
                 console.log('[ AUTH ] (check Termux!), then Restart just ONE instance.')
-                return // do not fight for the connection — stay idle instead of reconnect-looping
+                // During a redeploy the OLD container can still hold the session
+                // for a few seconds. Retry a limited number of times, slowly (so
+                // it never becomes a tug-of-war), instead of going idle forever
+                // with nobody connected.
+                replacedRetries += 1
+                if (replacedRetries <= 5) {
+                    scheduleReconnect(30_000 * replacedRetries, `session replaced, retry ${replacedRetries}/5`)
+                } else {
+                    console.log('[ AUTH ] Still replaced after 5 retries — another instance really is holding this session. Staying idle.')
+                }
+                return
             }
 
             // A restored SESSION_ID that connects then gets immediately kicked,

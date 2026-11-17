@@ -72,3 +72,9 @@
 <div align="center">
   <sub>Built with ❤️ by <a href="https://github.com/mahngueloh">Mahngueloh</a></sub>
 </div>
+
+## Keeping your session alive on Railway (no re-pairing after redeploys)
+
+1. Generate a session ID on the pairing site. New IDs start with `MAHNGUELOH~`, never expire and need no server to redeem. Paste it into the `SESSION_ID` variable in Railway.
+2. Add a **Volume** to the bot service (service → Settings → Volumes → New Volume) with mount path `/app/auth_info`. Railway wipes the container's files on every redeploy; the volume keeps the live login, so the bot never falls back to the old snapshot in `SESSION_ID`.
+3. Run the same session in only one place. Stop it on Termux or any other host before running it on Railway.
