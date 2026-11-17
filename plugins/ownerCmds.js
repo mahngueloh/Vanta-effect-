@@ -422,24 +422,31 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
                 // Unwrap view-once / ephemeral wrappers so replied view-once media can be posted
                 const q = extractMessageContent?.(quoted) || quoted
 
-                // Recipient list — status@broadcast REQUIRES a non-empty statusJidList
-                // (empty list = status silently never posts). Guarantee delivery to the
-                // live connected account's own number (not config.ownerNumber — that's a
-                // placeholder default unless OWNER_NUMBER was set in .env).
-                const selfNum = (cleanJid(sock.user?.id || '') || '').split('@')[0]
-                const selfLid = (sock.user?.lid || '').split(':')[0]
-                const statusJidList = [...new Set([
-                    ...(selfNum ? [`${selfNum}@s.whatsapp.net`] : []),
-                    ...(selfLid ? [`${selfLid}@lid`] : []),
-                    ...[config.ownerNumber, ...(sudoList || [])].filter(Boolean).map(n => `${n}@s.whatsapp.net`),
-                ])]
-                if (!statusJidList.length) {
-                    return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ No recipient JIDs — set OWNER_NUMBER in your .env file.`]) }, { quoted: msg })
+                // Recipients. WhatsApp now rejects status posts addressed by phone number on
+                // LID-migrated accounts (Baileys #2794: ack 479, silently swallowed), so
+                // audiences are resolved to LIDs and ONLY LIDs are sent.
+                //   .tostatus                    → your own My status
+                //   .tostatus 2547XXXXXXXX [...] → visible to those people
+                const cleanId = j => String(j || '').split('@')[0].split(':')[0]
+                const wanted = [...new Set((args || []).join(' ').split(/[\s,]+/).map(n => n.replace(/\D/g, '')).filter(n => n.length >= 7))]
+                const resolved = [], unresolved = []
+                for (const num of wanted) {
+                    try {
+                        const r = await sock.signalRepository.lidMapping.getLIDForPN(`${num}@s.whatsapp.net`)
+                        if (r) resolved.push(`${cleanId(r)}@lid`); else unresolved.push(num)
+                    } catch { unresolved.push(num) }
                 }
-                console.log('[tostatus] recipients=' + JSON.stringify(statusJidList))
+                if (wanted.length && !resolved.length) {
+                    return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Could not find WhatsApp IDs for: ${unresolved.join(', ')}`, `Check the number (country code, digits only) and that it is on WhatsApp.`]) }, { quoted: msg })
+                }
+                const selfLid = cleanId(sock.user?.lid || '')
+                const statusJidList = wanted.length
+                    ? [...new Set(resolved)]
+                    : (selfLid ? [`${selfLid}@lid`] : [`${cleanId(sock.user?.id)}@s.whatsapp.net`])
+                console.log('[tostatus] recipients=' + JSON.stringify(statusJidList) + (unresolved.length ? ' unresolved=' + JSON.stringify(unresolved) : ''))
 
                 const dl = () => downloadMediaMessage({ message: q, key: msg.key }, 'buffer', {}, { logger: silentLogger, reuploadRequest: sock.updateMediaMessage })
-                const sendOpts = { statusJidList, broadcast: true }
+                const sendOpts = { statusJidList }
 
                 if (q.imageMessage) {
                     await sock.sendMessage('status@broadcast', { image: await dl(), caption: q.imageMessage.caption || '' }, sendOpts)
@@ -452,10 +459,11 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
                     if (!text) return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ That message has no text/image/video/audio to post.`]) }, { quoted: msg })
                     // Text statuses REQUIRE backgroundColor + font or WhatsApp silently drops them
                     const bg = '#0B141A'
-                    await sock.sendMessage('status@broadcast', { text, backgroundColor: bg, font: 2 }, { ...sendOpts, backgroundColor: bg, font: 2 })
+                    await sock.sendMessage('status@broadcast', { text, backgroundColor: bg, font: 2, __noFun: true }, sendOpts)
                 }
                 console.log('[tostatus] relay finished without error')
-                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Sent to WhatsApp for status. If it is not in My status, run .statustest`]) }, { quoted: msg })
+                const who = wanted.length ? `${resolved.length} recipient(s)` : 'your My status'
+                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Status sent to ${who}.`, ...(unresolved.length ? [`⚠️ Skipped (not found): ${unresolved.join(', ')}`] : []), `ℹ️ Your own My status also shows it — WhatsApp always does that for the account that posts.`]) }, { quoted: msg })
             } catch (e) {
                 console.error('[tostatus] failed:', e)
                 await sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Could not post: ${e.message}`]) }, { quoted: msg })
