@@ -544,7 +544,7 @@ async function handleMessage(sock, msg) {
 
             case 'statustest':
                 if (!owner) { await sock.sendMessage(from, { text: 'Owner only.' }, { quoted: msg }); break }
-                await sendStatusTest(sock, from, msg)
+                await sendStatusTest(sock, from, msg, args)
                 break
 
             case 'btntest':

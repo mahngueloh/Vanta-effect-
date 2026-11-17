@@ -3,11 +3,14 @@
 // way this WhatsApp account actually shows under "My status".
 const cleanNum = j => String(j || '').split('@')[0].split(':')[0]
 
-async function sendStatusTest(sock, from, msg) {
+async function sendStatusTest(sock, from, msg, args = []) {
     const { generateWAMessageFromContent } = require('@neoxr/baileys')
     const pn  = cleanNum(sock.user?.id) + '@s.whatsapp.net'
     const lid = sock.user?.lid ? cleanNum(sock.user.lid) + '@lid' : null
     const both = [pn, ...(lid ? [lid] : [])]
+    // `.statustest 2547XXXXXXXX` = also include that contact, post just 2 statuses
+    const extraNum = String(args[0] || '').replace(/\D/g, '')
+    const withContact = extraNum ? [...both, extraNum + '@s.whatsapp.net'] : null
     const bg = '#0B141A'
     const post = (text, extra, opts) => sock.sendMessage('status@broadcast', { text, ...extra, __noFun: true }, opts)
     const raw = async (text, statusJidList) => {
@@ -24,7 +27,11 @@ async function sendStatusTest(sock, from, msg) {
         ['raw relay, both JIDs',  t => raw(t, both)],
         ['raw relay, phone JID',  t => raw(t, [pn])],
     ]
-    await sock.sendMessage(from, { text: `Posting ${variants.length} test statuses to ${both.join(', ')}. Then open WhatsApp → Updates → My status and tell me which numbers you see.` }, { quoted: msg })
+    if (withContact) variants.splice(0, variants.length,
+        ['to you + contact, normal', t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: withContact })],
+        ['to you + contact, raw relay', t => raw(t, withContact)],
+    )
+    await sock.sendMessage(from, { text: `Posting ${variants.length} test statuses to ${(withContact || both).join(', ')}. Then open WhatsApp → Updates → My status and tell me which numbers you see.` }, { quoted: msg })
     for (let i = 0; i < variants.length; i++) {
         const [label, run] = variants[i]
         const text = `Status test ${i + 1}/${variants.length}: ${label}`
