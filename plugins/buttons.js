@@ -91,8 +91,8 @@ async function sendButtonTest(sock, from, sender, msg) {
     const mod = await loadBtns()
     const pn = msg.key.remoteJidAlt || from
     const variants = [
-        ['default format',                {}],
-        ['no bot node',                   { bot: false }],
+        ['default format (no bot node)',  {}],
+        ['WITH bot node (old default)',   { bot: true }],
         ['no biz node',                   { biz: false }],
         ['no biz + no bot node',          { biz: false, bot: false }],
         ['no view-once wrapper',          { wrap: 'none' }],
