@@ -440,30 +440,45 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
                     return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Could not find WhatsApp IDs for: ${unresolved.join(', ')}`, `Check the number (country code, digits only) and that it is on WhatsApp.`]) }, { quoted: msg })
                 }
                 const selfLid = cleanId(sock.user?.lid || '')
-                const statusJidList = wanted.length
-                    ? [...new Set(resolved)]
-                    : (selfLid ? [`${selfLid}@lid`] : [`${cleanId(sock.user?.id)}@s.whatsapp.net`])
+                const selfJid = selfLid ? `${selfLid}@lid` : `${cleanId(sock.user?.id)}@s.whatsapp.net`
+                // Yourself is ALWAYS in the list (the working test post had your own LID plus the
+                // contact's); targets are added on top of it.
+                const statusJidList = [...new Set([selfJid, ...resolved])]
                 console.log('[tostatus] recipients=' + JSON.stringify(statusJidList) + (unresolved.length ? ' unresolved=' + JSON.stringify(unresolved) : ''))
 
                 const dl = () => downloadMediaMessage({ message: q, key: msg.key }, 'buffer', {}, { logger: silentLogger, reuploadRequest: sock.updateMediaMessage })
                 const sendOpts = { statusJidList }
+                // Capture WhatsApp's real accept/reject reply (ack) — sendMessage itself
+                // "succeeds" even when WhatsApp rejects the status.
+                const acks = new Map()
+                const onAck = n => { if (n?.attrs?.from === 'status@broadcast') { acks.set(n.attrs.id, n.attrs); console.log('[status-ack]', JSON.stringify(n.attrs)) } }
+                try { sock.ws.on('CB:ack,class:message', onAck) } catch {}
+                let lastId = null
+                const origSend = sock.sendMessage.bind(sock)
+                const sendStatus = async (content) => { const r = await origSend('status@broadcast', content, sendOpts); lastId = r?.key?.id; return r }
 
                 if (q.imageMessage) {
-                    await sock.sendMessage('status@broadcast', { image: await dl(), caption: q.imageMessage.caption || '' }, sendOpts)
+                    await sendStatus({ image: await dl(), caption: q.imageMessage.caption || '', __noFun: true })
                 } else if (q.videoMessage) {
-                    await sock.sendMessage('status@broadcast', { video: await dl(), caption: q.videoMessage.caption || '' }, sendOpts)
+                    await sendStatus({ video: await dl(), caption: q.videoMessage.caption || '', __noFun: true })
                 } else if (q.audioMessage) {
-                    await sock.sendMessage('status@broadcast', { audio: await dl(), mimetype: q.audioMessage?.mimetype || 'audio/ogg; codecs=opus', ptt: !!q.audioMessage?.ptt }, sendOpts)
+                    await sendStatus({ audio: await dl(), mimetype: q.audioMessage?.mimetype || 'audio/ogg; codecs=opus', ptt: !!q.audioMessage?.ptt })
                 } else {
                     const text = q.conversation || q.extendedTextMessage?.text || ''
                     if (!text) return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ That message has no text/image/video/audio to post.`]) }, { quoted: msg })
                     // Text statuses REQUIRE backgroundColor + font or WhatsApp silently drops them
                     const bg = '#0B141A'
-                    await sock.sendMessage('status@broadcast', { text, backgroundColor: bg, font: 2, __noFun: true }, sendOpts)
+                    await sendStatus({ text, backgroundColor: bg, font: 2, __noFun: true })
                 }
-                console.log('[tostatus] relay finished without error')
-                const who = wanted.length ? `${resolved.length} recipient(s)` : 'your My status'
-                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Status sent to ${who}.`, ...(unresolved.length ? [`⚠️ Skipped (not found): ${unresolved.join(', ')}`] : []), `ℹ️ Your own My status also shows it — WhatsApp always does that for the account that posts.`]) }, { quoted: msg })
+                // Wait briefly for WhatsApp's verdict on this post
+                let ack = null
+                for (let i = 0; i < 20 && !(ack = acks.get(lastId)); i++) await new Promise(r => setTimeout(r, 250))
+                try { sock.ws.off('CB:ack,class:message', onAck) } catch {}
+                if (ack?.error) {
+                    return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ WhatsApp rejected the status (error ${ack.error}).`, `Recipients tried: ${statusJidList.join(', ')}`]) }, { quoted: msg })
+                }
+                const who = wanted.length ? `you and ${resolved.length} other(s)` : 'your My status'
+                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Status ${ack ? 'accepted by WhatsApp' : 'sent (no reply from WhatsApp yet)'} → ${who}.`, ...(unresolved.length ? [`⚠️ Skipped (not found): ${unresolved.join(', ')}`] : []), `ℹ️ Your own My status also shows it — WhatsApp always shows it to the poster.`]) }, { quoted: msg })
             } catch (e) {
                 console.error('[tostatus] failed:', e)
                 await sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Could not post: ${e.message}`]) }, { quoted: msg })
