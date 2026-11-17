@@ -454,7 +454,8 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
                     const bg = '#0B141A'
                     await sock.sendMessage('status@broadcast', { text, backgroundColor: bg, font: 2 }, { ...sendOpts, backgroundColor: bg, font: 2 })
                 }
-                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Posted to status — now live on your number.`]) }, { quoted: msg })
+                console.log('[tostatus] relay finished without error')
+                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Sent to WhatsApp for status. If it is not in My status, run .statustest`]) }, { quoted: msg })
             } catch (e) {
                 console.error('[tostatus] failed:', e)
                 await sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Could not post: ${e.message}`]) }, { quoted: msg })
