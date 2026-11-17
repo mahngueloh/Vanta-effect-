@@ -1,37 +1,56 @@
 'use strict'
-// Owner diagnostic: posts a TEXT status six different ways so we can see which
-// way this WhatsApp account actually shows under "My status".
+// Owner diagnostic for status posting on LID-migrated accounts.
+// Known upstream bug (WhiskeySockets/Baileys #2794): status@broadcast sends
+// with PN recipients are rejected by WhatsApp (ack error 479) while sendMessage
+// still "succeeds". This logs the real ack for every attempt and tries
+// LID-only recipient lists.
+//   .statustest                 → to yourself only
+//   .statustest 2547XXXXXXXX    → also to that contact
 const cleanNum = j => String(j || '').split('@')[0].split(':')[0]
 
 async function sendStatusTest(sock, from, msg, args = []) {
     const { generateWAMessageFromContent } = require('@neoxr/baileys')
+    const bg = '#0B141A'
     const pn  = cleanNum(sock.user?.id) + '@s.whatsapp.net'
     const lid = sock.user?.lid ? cleanNum(sock.user.lid) + '@lid' : null
-    const both = [pn, ...(lid ? [lid] : [])]
-    // `.statustest 2547XXXXXXXX` = also include that contact, post just 2 statuses
     const extraNum = String(args[0] || '').replace(/\D/g, '')
-    const withContact = extraNum ? [...both, extraNum + '@s.whatsapp.net'] : null
-    const bg = '#0B141A'
-    const post = (text, extra, opts) => sock.sendMessage('status@broadcast', { text, ...extra, __noFun: true }, opts)
-    const raw = async (text, statusJidList) => {
+    const extraPn = extraNum ? extraNum + '@s.whatsapp.net' : null
+
+    // PN → LID for the extra contact via the library's own mapping store
+    let extraLid = null
+    if (extraPn) {
+        try {
+            const r = await sock.signalRepository.lidMapping.getLIDForPN(extraPn)
+            if (r) extraLid = cleanNum(r) + '@lid'
+        } catch (e) { console.log('[statustest] lid lookup failed:', e.message) }
+        if (!extraLid) {
+            try {
+                const [hit] = (await sock.onWhatsApp(extraNum)) || []
+                if (hit?.lid) extraLid = cleanNum(hit.lid) + '@lid'
+            } catch {}
+        }
+    }
+    const pnList  = [pn, ...(lid ? [lid] : []), ...(extraPn ? [extraPn] : [])]
+    const lidList = [...(lid ? [lid] : []), ...(extraLid ? [extraLid] : [])]
+    console.log('[statustest] pnList=' + JSON.stringify(pnList) + ' lidList=' + JSON.stringify(lidList))
+
+    // Log WhatsApp's real accept/reject reply for status sends
+    const onAck = n => { if (n?.attrs?.from === 'status@broadcast') console.log('[status-ack]', JSON.stringify(n.attrs)) }
+    try { sock.ws.on('CB:ack,class:message', onAck) } catch (e) { console.log('[statustest] ack listener failed:', e.message) }
+
+    const post = (text, statusJidList) => sock.sendMessage('status@broadcast', { text, backgroundColor: bg, font: 2, __noFun: true }, { statusJidList })
+    const raw = async (text, statusJidList, additionalAttributes) => {
         const m = generateWAMessageFromContent('status@broadcast', { extendedTextMessage: { text, backgroundArgb: 0xFF0B141A, textArgb: 0xFFFFFFFF, font: 2 } }, { userJid: sock.user.id })
-        await sock.relayMessage('status@broadcast', m.message, { messageId: m.key.id, statusJidList })
+        await sock.relayMessage('status@broadcast', m.message, { messageId: m.key.id, statusJidList, ...(additionalAttributes ? { additionalAttributes } : {}) })
         return m
     }
     const variants = [
-        ['phone-number JID only', t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: [pn] })],
-        ['LID only',              t => lid ? post(t, { backgroundColor: bg, font: 2 }, { statusJidList: [lid] }) : Promise.reject(new Error('no LID known'))],
-        ['both JIDs',             t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: both })],
-        ['both, no colour/font',  t => post(t, {}, { statusJidList: both })],
-        ['both, fresh metadata',  t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: both, useCachedGroupMetadata: false })],
-        ['raw relay, both JIDs',  t => raw(t, both)],
-        ['raw relay, phone JID',  t => raw(t, [pn])],
+        ['PN + LID (what .tostatus does now)', t => post(t, pnList)],
+        ['LID only',                           t => post(t, lidList)],
+        ['LID only + addressing_mode=lid',     t => raw(t, lidList, { addressing_mode: 'lid' })],
+        ['LID only, raw relay',                t => raw(t, lidList)],
     ]
-    if (withContact) variants.splice(0, variants.length,
-        ['to you + contact, normal', t => post(t, { backgroundColor: bg, font: 2 }, { statusJidList: withContact })],
-        ['to you + contact, raw relay', t => raw(t, withContact)],
-    )
-    await sock.sendMessage(from, { text: `Posting ${variants.length} test statuses to ${(withContact || both).join(', ')}. Then open WhatsApp → Updates → My status and tell me which numbers you see.` }, { quoted: msg })
+    await sock.sendMessage(from, { text: `Posting ${variants.length} test statuses. Recipients tried: ${pnList.join(', ')}${extraPn && !extraLid ? ' (could not find a LID for the contact)' : ''}.` }, { quoted: msg })
     for (let i = 0; i < variants.length; i++) {
         const [label, run] = variants[i]
         const text = `Status test ${i + 1}/${variants.length}: ${label}`
@@ -43,7 +62,8 @@ async function sendStatusTest(sock, from, msg, args = []) {
         }
         await new Promise(r => setTimeout(r, 3000))
     }
-    await sock.sendMessage(from, { text: 'Done. Open My status and reply with the numbers you can see (or "none").' })
+    try { sock.ws.off('CB:ack,class:message', onAck) } catch {}
+    await sock.sendMessage(from, { text: 'Done. Check Updates on your phone (and the contact\'s phone). Then send me the [status-ack] lines from the logs.' })
 }
 
 module.exports = { sendStatusTest }
