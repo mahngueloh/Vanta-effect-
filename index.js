@@ -272,7 +272,7 @@ const {
     generateWAMessageContent,
     generateWAMessageFromContent,
 } = require('@neoxr/baileys')
-const { sendBannerPlain } = require('./lib/banner')
+const { sendBannerPlain, sendButtonsWithBanner } = require('./lib/banner')
 const { Boom }  = require('@hapi/boom')
 const pino      = require('pino')
 const config    = require('./config')
@@ -891,14 +891,6 @@ async function connect() {
                             `┃✧ Uptime: ${upH}h ${upM}m`,
                             `┃✧ RAM: ${usedMB}MB / ${totalGB}GB [${ramBar}] ${ramPct}%`,
                             `┗━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-                            ``,
-                            `_${motto}_`,
-                            ``,
-                            `> *${config.botName}* is online.`,
-                            `> Type *${config.prefix}menu* to enter the VANTA grid.`,
-                            ``,
-                            config.whatsappChannelUrl ? `📢 Join our updates channel:\n${config.whatsappChannelUrl}` : null,
-                            `🤝 Support: https://wa.me/${config.ownerNumber}`,
                         ].filter(Boolean).join('\n')
                         // sockInstance.user.id is the bot's real, actually-connected JID —
                         // always correct, unlike `phone` which is blank whenever
@@ -910,10 +902,24 @@ async function connect() {
                         const bare = (j) => String(j || '').split(':')[0].split('@')[0]
                         const lidNum = bare(sockInstance.user?.lid)
                         const targets = [lidNum && lidNum + '@lid', selfNum && selfNum + '@s.whatsapp.net'].filter(Boolean)
+                        // Startup-message buttons. The Contact button deliberately points at this
+                        // number only (not config.ownerNumber) — it applies to this message alone.
+                        const btnsLib = require('./lib/btns')
+                        const startupButtons = [
+                            btnsLib.btn.url('💬 Contact Owner', 'https://wa.me/254725776602'),
+                            ...(config.whatsappChannelUrl ? [btnsLib.btn.url('📢 Updates Channel', config.whatsappChannelUrl)] : []),
+                            ...(config.githubRepo ? [btnsLib.btn.url('📦 Repository', `https://github.com/${config.githubRepo}`)] : []),
+                        ]
                         let delivered = false
                         for (const to of targets) {
                             try {
-                                await sendBannerPlain(sockInstance, to, { caption: frame, mentions: selfNum ? [selfNum + '@s.whatsapp.net'] : [] })
+                                const mentions = selfNum ? [selfNum + '@s.whatsapp.net'] : []
+                                try {
+                                    await sendButtonsWithBanner(btnsLib, sockInstance, to, { text: frame, footer: config.botName, buttons: startupButtons, mentions })
+                                } catch (be) {
+                                    console.log('[ ONLINE ] Buttons send failed, sending plain banner:', be.message)
+                                    await sendBannerPlain(sockInstance, to, { caption: frame, mentions })
+                                }
                                 console.log(`[ ONLINE ] Startup banner sent to ${to}`)
                                 delivered = true
                                 break
