@@ -1,5 +1,6 @@
 'use strict'
 
+const { bannerMedia, sendButtonsWithBanner, sendBannerPlain } = require('../lib/banner')
 const config = require('../config')
 const os = require('os')
 const fs = require('fs')
@@ -235,8 +236,8 @@ async function sendMenu(sock, from, sender, msg) {
     // Keep the existing reaction behavior.
     await fmt.react(sock, msg, '⚡')
 
-    const bannerPath = path.join(__dirname, '../assets/banner.png')
-    const hasBanner  = fs.existsSync(bannerPath)
+    const bm = bannerMedia()
+    const hasBanner = !!bm
 
     // Owner / Repository / WaChannel / Ping, spencer-btns permitting — mounted
     // onto the SAME card as the menu text (one message, not a separate
@@ -259,8 +260,7 @@ async function sendMenu(sock, from, sender, msg) {
         let sent = false
         if (hasBanner) {
             try {
-                await mod.sendButtons(sock, from, {
-                    image: fs.readFileSync(bannerPath),
+                await sendButtonsWithBanner(mod, sock, from, {
                     text: fullText,
                     buttons: linkButtons,
                     mentions: menuMentions,
@@ -272,7 +272,7 @@ async function sendMenu(sock, from, sender, msg) {
         }
         if (!sent) {
             if (hasBanner) {
-                await sock.sendMessage(from, { image: fs.readFileSync(bannerPath), mentions: menuMentions }, { quoted: msg })
+                await sendBannerPlain(sock, from, { mentions: menuMentions }, { quoted: msg })
             }
             await mod.sendButtons(sock, from, {
                 text: fullText,
@@ -281,7 +281,7 @@ async function sendMenu(sock, from, sender, msg) {
             }, hasBanner ? {} : { quoted: msg })
         }
     } else if (hasBanner) {
-        await sock.sendMessage(from, { image: fs.readFileSync(bannerPath), caption: fullText, mentions: menuMentions }, { quoted: msg })
+        await sendBannerPlain(sock, from, { caption: fullText, mentions: menuMentions }, { quoted: msg })
     } else {
         await sock.sendMessage(from, { text: fullText, mentions: menuMentions }, { quoted: msg })
     }

@@ -272,6 +272,7 @@ const {
     generateWAMessageContent,
     generateWAMessageFromContent,
 } = require('@neoxr/baileys')
+const { sendBannerPlain } = require('./lib/banner')
 const { Boom }  = require('@hapi/boom')
 const pino      = require('pino')
 const config    = require('./config')
@@ -902,14 +903,23 @@ async function connect() {
                         // sockInstance.user.id is the bot's real, actually-connected JID —
                         // always correct, unlike `phone` which is blank whenever
                         // the bot connected via a restored SESSION_ID.
-                        if (selfJid) {
-                            const bannerPath = path.join(__dirname, 'assets/banner.png')
-                            if (fs.existsSync(bannerPath)) {
-                                await sockInstance.sendMessage(selfJid, { image: fs.readFileSync(bannerPath), caption: frame })
-                            } else {
-                                await sockInstance.sendMessage(selfJid, { text: frame })
-                            }
+                        // Deliver to the bot account's own "Message yourself" chat. user.id carries a
+                        // device suffix (":12@s.whatsapp.net") which WhatsApp does not route as a chat, and
+                        // on LID-migrated accounts the chat is the @lid one — so try the clean LID first,
+                        // then the clean phone-number JID, and log the real outcome (it used to be silent).
+                        const bare = (j) => String(j || '').split(':')[0].split('@')[0]
+                        const lidNum = bare(sockInstance.user?.lid)
+                        const targets = [lidNum && lidNum + '@lid', selfNum && selfNum + '@s.whatsapp.net'].filter(Boolean)
+                        let delivered = false
+                        for (const to of targets) {
+                            try {
+                                await sendBannerPlain(sockInstance, to, { caption: frame, mentions: selfNum ? [selfNum + '@s.whatsapp.net'] : [] })
+                                console.log(`[ ONLINE ] Startup banner sent to ${to}`)
+                                delivered = true
+                                break
+                            } catch (e) { console.log(`[ ONLINE ] Startup banner to ${to} failed: ${e.message}`) }
                         }
+                        if (!delivered) console.log('[ ONLINE ] Startup banner could not be delivered to any target')
                     } catch {}
                 }, 4000)
             }

@@ -712,8 +712,8 @@ async function handleMessage(sock, msg) {
                     const repoMentions = [sender]
 
                     const fs = require('fs'), path = require('path')
-                    const bannerPath = path.join(__dirname, 'assets/banner.png')
-                    const hasBanner = fs.existsSync(bannerPath)
+                    const { bannerMedia, sendButtonsWithBanner, sendBannerPlain } = require('./lib/banner')
+                    const hasBanner = !!bannerMedia()
                     if (spencerButtons) {
                         // Try ONE combined message (banner + caption + buttons)
                         // first — only split into two if spencer-btns rejects
@@ -721,8 +721,7 @@ async function handleMessage(sock, msg) {
                         let sent = false
                         if (hasBanner) {
                             try {
-                                await mod.sendButtons(sock, from, {
-                                    image: fs.readFileSync(bannerPath),
+                                await sendButtonsWithBanner(mod, sock, from, {
                                     text: caption,
                                     footer: config.botName,
                                     buttons: spencerButtons,
@@ -735,7 +734,7 @@ async function handleMessage(sock, msg) {
                         }
                         if (!sent) {
                             if (hasBanner) {
-                                await sock.sendMessage(from, { image: fs.readFileSync(bannerPath), caption, mentions: repoMentions }, { quoted: msg })
+                                await sendBannerPlain(sock, from, { caption, mentions: repoMentions }, { quoted: msg })
                             }
                             await mod.sendButtons(sock, from, {
                                 text: hasBanner ? `Tap below —` : caption,
@@ -745,7 +744,7 @@ async function handleMessage(sock, msg) {
                             }, hasBanner ? undefined : { quoted: msg })
                         }
                     } else if (hasBanner) {
-                        await sock.sendMessage(from, { image: fs.readFileSync(bannerPath), caption, footer: config.botName, mentions: repoMentions, ...buttonOpts }, { quoted: msg })
+                        await sendBannerPlain(sock, from, { caption, footer: config.botName, mentions: repoMentions, ...buttonOpts }, { quoted: msg })
                     } else {
                         await sock.sendMessage(from, { text: caption, footer: config.botName, mentions: repoMentions, ...buttonOpts }, { quoted: msg })
                     }

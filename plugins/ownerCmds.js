@@ -879,15 +879,22 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
         case 'setmenuimage': {
             const fs = require('fs'), path = require('path')
             const quotedImg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
-            const imgMsg = quotedImg?.imageMessage || msg.message?.imageMessage
-            if (!imgMsg) return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Send an image with .setmenuimage as the caption, or reply to one with the command.`]) }, { quoted: msg })
+            const holder = quotedImg || msg.message
+            const vid = holder?.videoMessage
+            const imgMsg = holder?.imageMessage
+            if (!imgMsg && !vid) return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Send an image or short video with .setmenuimage as the caption, or reply to one with the command.`]) }, { quoted: msg })
             try {
                 const { downloadMediaMessage } = require('@neoxr/baileys')
-                const buf = await downloadMediaMessage({ message: quotedImg || msg.message, key: msg.key }, 'buffer', {}, { logger: silentLogger, reuploadRequest: sock.updateMediaMessage })
-                const bannerPath = path.join(__dirname, '../assets/banner.png')
-                fs.mkdirSync(path.dirname(bannerPath), { recursive: true })
-                fs.writeFileSync(bannerPath, buf)
-                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Menu banner updated — .menu will use it from now on.`]) }, { quoted: msg })
+                const buf = await downloadMediaMessage({ message: holder, key: msg.key }, 'buffer', {}, { logger: silentLogger, reuploadRequest: sock.updateMediaMessage })
+                const dir = path.join(__dirname, '../assets')
+                fs.mkdirSync(dir, { recursive: true })
+                if (vid) {
+                    fs.writeFileSync(path.join(dir, 'banner.mp4'), buf)
+                } else {
+                    fs.writeFileSync(path.join(dir, 'banner.png'), buf)
+                    try { fs.unlinkSync(path.join(dir, 'banner.mp4')) } catch {}   // an image replaces the video banner
+                }
+                await sock.sendMessage(from, { text: fmt.box('SUCCESS', [`✅ Menu banner updated (${vid ? 'video' : 'image'}) — .menu will use it from now on.`]) }, { quoted: msg })
             } catch (e) {
                 await sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Failed: ${e.message}`]) }, { quoted: msg })
             }
