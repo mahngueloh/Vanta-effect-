@@ -1,0 +1,58 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;overflow:hidden;background:transparent;font-family:Arial,sans-serif;overscroll-behavior:none;padding:0}
+body{padding:8px;background:radial-gradient(circle at 50% 12%,#4a154b,#110419 60%,#05000a)}
+.machine{position:relative;overflow:hidden;padding:12px;border:3px solid #360d3d;border-radius:22px;background:linear-gradient(105deg,#15021f,#501366 8%,#230530 20%,#460e59 52%,#1b0324 82%,#6a1c87 94%,#0f0117);box-shadow:inset 0 0 0 2px #ff4081,inset 0 0 0 6px #240530,inset 0 20px 35px #00e5ff22,0 8px 0 #15021f,0 14px 24px #000c;touch-action:none}
+.machine:before{content:"";position:absolute;inset:6px;border:2px solid #ff4081;border-radius:18px;pointer-events:none;box-shadow:inset 0 0 11px #00e5ff}
+.lights{height:8px;margin:0 12px 6px;border:2px solid #360d3d;border-radius:8px;background:repeating-radial-gradient(circle at 6px 50%,#fff 0 2px,#00e5ff 3px 5px,#ff4081 6px 12px);box-shadow:0 0 12px #ff4081;animation:lights .55s steps(2) infinite}
+.title{padding:8px 4px 6px;border:2px solid #ff4081;border-radius:12px;color:#fff;background:radial-gradient(ellipse at 50% 0,#00e5ff,#4a154b 70%);box-shadow:inset 0 0 0 3px #230530,inset 0 -11px 18px #000d,0 4px 0 #15021f;text-align:center;font:bold 22px Impact,Arial Black,sans-serif;letter-spacing:2px;text-shadow:0 2px #15021f}
+.stats{display:flex;margin:8px 2px;padding:4px;border:2px solid #6a1c87;border-radius:8px;background:linear-gradient(#15021f,#05000a);box-shadow:inset 0 0 9px #000,0 3px 0 #230530}
+.stat{flex:1;border-right:1px solid #6a1c87;color:#e1bee7;text-align:center;font:bold 10px monospace}.stat:last-child{border:0}.stat b{display:block;margin-top:2px;color:#00e5ff;font-size:14px;text-shadow:0 0 6px #00e5ff}
+.frame{position:relative;padding:6px;border:4px solid #501366;border-radius:14px;background:linear-gradient(90deg,#15021f,#ff4081 5%,#230530 10%,#230530 90%,#ff4081 95%,#15021f);box-shadow:inset 0 0 0 3px #05000a,0 4px 0 #15021f,0 8px 15px #000b}
+.reelbox{height:200px;border:3px solid #05000a;border-radius:9px;background:#1a1a2e;overflow:hidden;position:relative}
+.reelbox canvas{display:block;width:100%;height:100%;touch-action:none}
+.message{height:30px;margin:8px 2px 6px;display:grid;place-items:center;border:2px solid #6a1c87;border-radius:8px;color:#00e5ff;background:#15021f;text-align:center;font:bold 13px monospace;text-shadow:0 0 7px #00e5ff}
+.ctrls{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px;margin:0 2px;padding:6px;border:3px solid #501366;border-radius:12px;background:linear-gradient(#4a154b,#110419);box-shadow:inset 0 2px #ff4081,0 5px #15021f,0 9px 12px #0008}
+button{height:46px;border:2px solid #ff4081;border-radius:10px;color:#fff;font-weight:900;touch-action:none;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;font-size:16px}
+.btn-dir{background:linear-gradient(#7b1fa2,#4a148c);box-shadow:inset 0 2px 4px #e1bee7,0 3px #230530}
+.btn-boost{background:radial-gradient(circle at 50% 32%,#ff4081,#c2185b 60%,#880e4f);box-shadow:inset 0 2px 5px #ff80ab,0 3px #880e4f;text-shadow:0 1px 3px #000}
+.over{position:absolute;z-index:10;inset:0;display:none;place-items:center;text-align:center;color:#fff;background:#05000af2}.over.on{display:grid}
+.over button{padding:0 24px;margin-top:12px;background:#00e5ff;color:#000;border:none}
+@keyframes lights{50%{filter:brightness(1.8)}}
+
+.ctrls.one{grid-template-columns:1fr}.ctrls.four{grid-template-columns:repeat(4,1fr)}
+</style></head><body>
+<div class="machine">
+<div class="lights"></div>
+<div class="title">SNAKE</div>
+<div class="stats"><div class="stat">SCORE<b id="sc">0</b></div><div class="stat">BEST<b id="bs">0</b></div></div>
+<div class="frame"><div class="reelbox"><canvas id="gc"></canvas></div></div>
+<div class="message" id="msg">SWIPE OR TAP ARROWS</div>
+<div class="ctrls four">
+<button id="l" class="btn-dir" type="button">◀</button><button id="u" class="btn-dir" type="button">▲</button><button id="d" class="btn-dir" type="button">▼</button><button id="r" class="btn-dir" type="button">▶</button>
+</div>
+<div class="over" id="over"><div><h2>GAME OVER</h2><div id="fs" style="font-size:16px;font-weight:bold;margin-bottom:8px"></div><button id="rb" type="button">PLAY AGAIN</button></div></div>
+</div>
+<script>(()=>{
+let W,H;const $=i=>document.getElementById(i);const c=$("gc"),x=c.getContext("2d"),box=c.parentElement,over=$("over"),msg=$("msg"),scEl=$("sc"),bsEl=$("bs"),fs=$("fs"),rb=$("rb");
+function press(el,fn){el.addEventListener("pointerdown",e=>{e.preventDefault();fn()})}
+function size(){W=box.clientWidth;H=box.clientHeight;c.width=W;c.height=H}
+const S=14;let cols,rows,sn,dir,nd,food,score,best=0,alive=false,acc=0,last=0,T=125;
+try{best=Number(localStorage.getItem("snake_best"))||0}catch(e){}bsEl.textContent=best;
+function place(){for(let n=0;n<200;n++){const f={x:Math.floor(Math.random()*cols),y:Math.floor(Math.random()*rows)};if(!sn.some(s=>s.x===f.x&&s.y===f.y)){food=f;return}}}
+function reset(){size();cols=Math.floor(W/S);rows=Math.floor(H/S);sn=[{x:5,y:Math.floor(rows/2)},{x:4,y:Math.floor(rows/2)},{x:3,y:Math.floor(rows/2)}];dir={x:1,y:0};nd=dir;score=0;T=125;alive=true;scEl.textContent=0;msg.textContent="EAT THE FRUIT!";over.classList.remove("on");place()}
+function die(){alive=false;best=Math.max(best,score);bsEl.textContent=best;fs.textContent="Score: "+score;over.classList.add("on");try{localStorage.setItem("snake_best",best)}catch(e){}}
+function turn(dx,dy){if(!alive)return;if(dx===-dir.x&&dy===-dir.y)return;nd={x:dx,y:dy}}
+press($("l"),()=>turn(-1,0));press($("r"),()=>turn(1,0));press($("u"),()=>turn(0,-1));press($("d"),()=>turn(0,1));press(rb,reset);
+addEventListener("keydown",e=>{const m={ArrowLeft:[-1,0],KeyA:[-1,0],ArrowRight:[1,0],KeyD:[1,0],ArrowUp:[0,-1],KeyW:[0,-1],ArrowDown:[0,1],KeyS:[0,1]}[e.code];if(m)turn(m[0],m[1])});
+let sx=0,sy=0;c.addEventListener("pointerdown",e=>{sx=e.clientX;sy=e.clientY});
+c.addEventListener("pointerup",e=>{const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.max(Math.abs(dx),Math.abs(dy))<14)return;if(Math.abs(dx)>Math.abs(dy))turn(dx>0?1:-1,0);else turn(0,dy>0?1:-1)});
+function step(){dir=nd;const h={x:sn[0].x+dir.x,y:sn[0].y+dir.y};
+if(h.x<0||h.y<0||h.x>=cols||h.y>=rows||sn.some(s=>s.x===h.x&&s.y===h.y)){die();return}
+sn.unshift(h);if(h.x===food.x&&h.y===food.y){score+=10;scEl.textContent=score;T=Math.max(65,T-3);place()}else sn.pop()}
+function draw(){x.fillStyle="#1a1a2e";x.fillRect(0,0,W,H);
+const ox=(W-cols*S)/2,oy=(H-rows*S)/2;
+x.fillStyle="#22223d";for(let i=0;i<cols;i++)for(let j=0;j<rows;j++)if((i+j)%2===0)x.fillRect(ox+i*S,oy+j*S,S,S);
+if(food){x.fillStyle="#ff4081";x.beginPath();x.arc(ox+food.x*S+S/2,oy+food.y*S+S/2,S/2-2,0,7);x.fill()}
+sn.forEach((s,i)=>{x.fillStyle=i?"#00e5ff":"#fff";x.fillRect(ox+s.x*S+1,oy+s.y*S+1,S-2,S-2)})}
+function loop(now){const d=Math.min(100,now-last);last=now;if(alive){acc+=d;while(acc>=T&&alive){acc-=T;step()}}draw();requestAnimationFrame(loop)}
+size();reset();requestAnimationFrame(loop)})()</script></body></html>

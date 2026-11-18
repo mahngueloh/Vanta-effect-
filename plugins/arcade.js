@@ -8,8 +8,10 @@
 const fs = require('fs')
 const path = require('path')
 const config = require('../config')
+const { sendRichHtml } = require('../lib/richhtml')
 
 const DIR = path.join(__dirname, '..', 'assets', 'arcade')
+const RICH_DIR = path.join(DIR, 'rich')
 const GAMES = [
     { id: 'flappy', file: 'flappy.html', title: 'Flappy Bird',   emoji: '🐦', cmds: ['flappy', 'flappybird'],        how: 'Tap to flap, dodge the pipes' },
     { id: 'racer',  file: 'racer.html',  title: 'Turbo Highway', emoji: '🏎️', cmds: ['racer', 'turbo', 'highway'],   how: 'Swipe or LEFT/RIGHT, hold BOOST' },
@@ -26,11 +28,18 @@ async function handleArcade(sock, from, cmd, args, msg, sender) {
         const lines = GAMES.map(g => `${g.emoji} *${P()}${g.cmds[0]}* — ${g.title}\n      _${g.how}_`)
         return sock.sendMessage(from, {
             text: `🕹️ *ARCADE*\n\n${lines.join('\n\n')}\n\n` +
-                  `_The bot sends the game as a file. Tap it and open it in your browser (Chrome) to play._`
+                  `_Games play right inside the chat. Add *file* (e.g. ${P()}snake file) to get the game as a file instead._`
         }, { quoted: msg })
     }
     const g = byCmd.get(cmd)
     if (!g) return
+    // Default: play live inside the chat bubble. "file" → send as an .html document instead.
+    if (!/^(file|doc|html)$/i.test(String(args?.[0] || ''))) {
+        try {
+            const html = fs.readFileSync(path.join(RICH_DIR, g.file), 'utf8')
+            return await sendRichHtml(sock, from, html, { title: g.title })
+        } catch (e) { console.log(`[arcade] in-chat send failed for ${g.id}: ${e.message} — falling back to file`) }
+    }
     let buf
     try { buf = fs.readFileSync(path.join(DIR, g.file)) }
     catch { return sock.sendMessage(from, { text: `❌ ${g.title} is missing on this server.` }, { quoted: msg }) }
