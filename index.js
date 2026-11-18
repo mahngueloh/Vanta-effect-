@@ -273,6 +273,7 @@ const {
     generateWAMessageFromContent,
 } = require('@neoxr/baileys')
 const { sendBannerPlain, sendButtonsWithBanner } = require('./lib/banner')
+const { restoreArcade } = require('./plugins/arcade')
 const { Boom }  = require('@hapi/boom')
 const pino      = require('pino')
 const config    = require('./config')
@@ -811,6 +812,7 @@ async function connect() {
         }
 
         if (connection === 'open') {
+            try { restoreArcade(sockInstance) } catch {}
             replacedRetries = 0
             retries = 0
             lastOpenAt = Date.now()

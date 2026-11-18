@@ -7,3 +7,4 @@ tmp/
 .npm/
 settings.json
 data/chatbrain.json
+data/arcade-sessions.json
