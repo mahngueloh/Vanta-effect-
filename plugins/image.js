@@ -92,6 +92,20 @@ async function getRemini(sock, from, msg) {
 // URL — needed because Savage's bgremover takes an `imageUrl` to fetch
 // rather than accepting a direct file upload, and a WhatsApp media message
 // has no public URL of its own (it's an encrypted blob on WA's own CDN).
+async function uploadPublic(buf, filename) {
+    try { return await uploadToCatbox(buf, filename) }
+    catch (e1) {
+        // fallback host so a catbox outage doesn't break the command
+        const FormDataNode = require('form-data'), axios = require('axios')
+        const form = new FormDataNode()
+        form.append('files[]', buf, filename)
+        const res = await axios.post('https://uguu.se/upload', form, { headers: form.getHeaders(), timeout: 20000 })
+        const url = res.data?.files?.[0]?.url
+        if (!url) throw new Error(`upload failed (catbox: ${e1.message})`)
+        return url
+    }
+}
+
 async function uploadToCatbox(buf, filename) {
     const FormDataNode = require('form-data')
     const axios = require('axios')
@@ -106,7 +120,33 @@ async function uploadToCatbox(buf, filename) {
     return url
 }
 
-// Savage API's bgremover — tried first since that's the preferred provider.
+// Nexray's removebg — tried first:
+//   GET https://api.nexray.eu.cc/tools/removebg?url=<public image url>
+// It fetches the image from a URL, so the WhatsApp image is uploaded to a
+// temporary public host first. Returns { buf } or { error } (never throws).
+async function nexrayRemoveBackground(buf) {
+    const axios = require('axios')
+    const base = (process.env.NEXRAY_API_BASE || 'https://api.nexray.eu.cc').replace(/\/+$/, '')
+    try {
+        const url = await uploadPublic(buf, 'image.jpg')
+        const params = { url }
+        if (process.env.NEXRAY_API_KEY) params.apikey = process.env.NEXRAY_API_KEY
+        const res = await axios.get(`${base}/tools/removebg`, { params, timeout: 45000, responseType: 'arraybuffer', validateStatus: () => true })
+        const ct = res.headers['content-type'] || ''
+        if (res.status === 200 && ct.startsWith('image/')) return { buf: Buffer.from(res.data) }
+        let data = null
+        try { data = JSON.parse(Buffer.from(res.data).toString('utf8')) } catch {}
+        if (!data) return { error: `unexpected response (HTTP ${res.status}, ${ct || 'no content-type'})` }
+        const out = data.result || data.url || data.output || data.data?.url || data.data?.result || data.image
+        if (typeof out === 'string' && /^https?:/.test(out)) {
+            const img = await axios.get(out, { responseType: 'arraybuffer', timeout: 25000 })
+            return { buf: Buffer.from(img.data) }
+        }
+        return { error: String(data.error || data.message || JSON.stringify(data)).slice(0, 200) }
+    } catch (e) { return { error: e.message } }
+}
+
+// Savage API's bgremover — second choice since that's the preferred provider.
 // Returns { buf } on success or { error } on failure (never throws) so the
 // caller can fall through to remove.bg/DeepAI while still keeping the real
 // reason to show the user if every provider fails.
@@ -115,7 +155,7 @@ async function savageRemoveBackground(buf) {
     if (!config.savageApiKey) return { error: 'no Savage API key configured' }
     const axios = require('axios')
     try {
-        const imageUrl = await uploadToCatbox(buf, 'image.jpg')
+        const imageUrl = await uploadPublic(buf, 'image.jpg')
         const res = await axios.get(`${config.savageApiBase}/tools/bgremover`, {
             params: { apikey: config.savageApiKey, imageUrl },
             timeout: 30000,
@@ -148,7 +188,9 @@ async function savageRemoveBackground(buf) {
 }
 
 async function getRemoveBackground(sock, from, msg) {
-    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
+    // Works on a replied-to image, or on an image sent with the command as its caption.
+    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || (msg.message?.imageMessage ? msg.message : null)
+    const direct = !msg.message?.extendedTextMessage?.contextInfo?.quotedMessage && !!msg.message?.imageMessage
     if (!quoted?.imageMessage) {
         return sock.sendMessage(from, {
             text: fmt.box('REMOVE BACKGROUND', [
@@ -160,7 +202,7 @@ async function getRemoveBackground(sock, from, msg) {
         await fmt.react(sock, msg, '⏳')
         const { downloadMediaMessage } = require('@neoxr/baileys')
         const ctx = msg.message?.extendedTextMessage?.contextInfo || {}
-        const quotedKey = {
+        const quotedKey = direct ? msg.key : {
             remoteJid: from,
             id: ctx.stanzaId || '',
             participant: ctx.participant || '',
@@ -172,10 +214,16 @@ async function getRemoveBackground(sock, from, msg) {
         )
 
         const config = require('../config')
-        const savageResult = await savageRemoveBackground(buf)
-        let pngBuf = savageResult.buf
-        let provider = 'Savage API'
-        let savageError = savageResult.error
+        const nexResult = await nexrayRemoveBackground(buf)
+        let pngBuf = nexResult.buf
+        let provider = 'Nexray'
+        let savageError = `Nexray: ${nexResult.error}`
+        if (!pngBuf) {
+            const savageResult = await savageRemoveBackground(buf)
+            pngBuf = savageResult.buf
+            provider = 'Savage API'
+            savageError += `; Savage: ${savageResult.error}`
+        }
 
         if (!pngBuf) {
             const apiKey = process.env.REMOVEBG_API_KEY || config.removeBgApiKey
