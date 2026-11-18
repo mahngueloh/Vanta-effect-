@@ -85,38 +85,4 @@ registerButtonAction('btn_support', async (sock, from) => sock.sendMessage(from,
     text: fmt.box('SUPPORT', [`Contact *${config.ownerName}*: wa.me/${config.ownerNumber}`]),
 }))
 
-// Owner diagnostic: sends the SAME small button message in 9 different wire
-// formats, so one run shows which ones this WhatsApp account actually renders.
-async function sendButtonTest(sock, from, sender, msg) {
-    const mod = await loadBtns()
-    const pn = msg.key.remoteJidAlt || from
-    const variants = [
-        ['default format (no bot node)',  {}],
-        ['WITH bot node (old default)',   { bot: true }],
-        ['no biz node',                   { biz: false }],
-        ['no biz + no bot node',          { biz: false, bot: false }],
-        ['no view-once wrapper',          { wrap: 'none' }],
-        ['viewOnceMessageV2 wrapper',     { wrap: 'viewOnceV2' }],
-        ['documentWithCaption wrapper',   { wrap: 'document' }],
-        ['no messageVersion field',       { version: false }],
-        ['not quoting your message',      { quote: false }],
-        ['sent to phone-number JID',      {}, pn],
-    ]
-    await sock.sendMessage(from, { text: `Sending ${variants.length} button tests, one every 3 seconds. Tell me which numbers show buttons.` }, { quoted: msg })
-    for (let i = 0; i < variants.length; i++) {
-        const [label, flags, to] = variants[i]
-        try {
-            await mod.sendButtons(sock, to || from, {
-                text: `*Test ${i + 1}/${variants.length}* — ${label}`,
-                footer: FOOTER,
-                buttons: [mod.btn.url('Open GitHub', 'https://github.com/'), mod.btn.reply('Reply', `btntest_${i + 1}`)],
-            }, { quoted: msg, flags })
-        } catch (e) {
-            console.log(`[btntest] variant ${i + 1} (${label}) failed:`, e.message)
-        }
-        await new Promise(r => setTimeout(r, 3000))
-    }
-    await sock.sendMessage(from, { text: 'Done. Reply with the numbers that showed buttons (or "none").' })
-}
-
-module.exports = { sendButtonsDemo, sendLinkCard, sendButtonTest }
+module.exports = { sendButtonsDemo, sendLinkCard }

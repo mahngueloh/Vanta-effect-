@@ -256,7 +256,6 @@ process.stdout.write = filterWrite(process.stdout.write.bind(process.stdout))
 process.stderr.write = filterWrite(process.stderr.write.bind(process.stderr))
 
 const { logEnvDiagnostics } = require('./lib/envCheck')
-const { captureRich } = require('./lib/richcapture')
 logEnvDiagnostics()
 
 const {
@@ -1038,7 +1037,6 @@ async function connect() {
         for (const msg of messages) {
             try {
                 if (!msg?.message) continue
-                captureRich(sockInstance, msg)   // saves rich-response messages (Meta AI / other bots' games) for study
                 if (type !== 'append' && !dedup(msg.key.id)) continue
 
                 const jid = msg.key.remoteJid || ''
