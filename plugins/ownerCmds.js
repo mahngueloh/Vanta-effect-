@@ -890,7 +890,13 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
                 fs.mkdirSync(dir, { recursive: true })
                 if (vid) {
                     fs.writeFileSync(path.join(dir, 'banner.mp4'), buf)
+                    // rebuild the autoplay sticker from the new video (drop the old one if ffmpeg is missing)
+                    try { fs.unlinkSync(path.join(dir, 'banner.webp')) } catch {}
+                    try {
+                        require('child_process').execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', path.join(dir, 'banner.mp4'), '-t', '6', '-an', '-vf', 'fps=10,scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,format=yuva420p', '-c:v', 'libwebp_anim', '-lossless', '0', '-q:v', '30', '-loop', '0', path.join(dir, 'banner.webp')], { timeout: 60000 })
+                    } catch {}
                 } else {
+                    try { fs.unlinkSync(path.join(dir, 'banner.webp')) } catch {}
                     fs.writeFileSync(path.join(dir, 'banner.png'), buf)
                     try { fs.unlinkSync(path.join(dir, 'banner.mp4')) } catch {}   // an image replaces the video banner
                 }
