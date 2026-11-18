@@ -1,32 +1,59 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Flappy Bird</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b141a;color:#fff;font-family:system-ui,Segoe UI,Roboto,sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}#wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}canvas{display:block;border-radius:16px;box-shadow:0 0 0 4px #1f2c34,0 10px 40px #0008}.hud{display:flex;gap:10px;font-weight:700;font-size:14px;letter-spacing:.5px}.pill{background:#1f2c34;padding:6px 12px;border-radius:999px}.btn{background:#00e5ff;color:#001;border:0;border-radius:12px;padding:14px 22px;font-size:18px;font-weight:800}.ctl{display:flex;gap:10px;width:min(92vw,360px)}.ctl button{flex:1;padding:16px 0;border:0;border-radius:14px;background:#1f2c34;color:#fff;font-size:18px;font-weight:800}.ctl button:active{background:#00a884}#ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#000a;text-align:center}#ov h1{margin:0;font-size:34px}#ov p{margin:0;font-size:20px}</style></head><body><div id="wrap"><div class="hud"><span class="pill">🐦 FLAPPY BIRD</span><span class="pill">⭐ <b id="s">0</b></span><span class="pill">🏆 <b id="b">0</b></span></div><canvas id="c" width="360" height="600"></canvas></div><div id="ov"><h1>GAME OVER</h1><p id="fs"></p><button class="btn" id="go">PLAY AGAIN</button></div>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Flappy Bird</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#0a1226;overflow:hidden;font-family:"Trebuchet MS",system-ui,sans-serif;color:#fff;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#cab{position:absolute;left:50%;top:50%;width:360px;transform-origin:center;padding:10px 10px 12px;border-radius:18px;background:linear-gradient(180deg,#0f3a73,#0a2a57);border:4px solid #0a0a0a;box-shadow:inset 0 0 0 3px #f5d020,0 0 0 3px #f5d020,0 0 0 6px #0a0a0a,0 10px 40px #000a}
+.top{display:flex;align-items:center;justify-content:space-between;margin:2px 2px 10px}
+.pill{display:flex;align-items:center;gap:6px;background:linear-gradient(180deg,#ffe45c,#f2b705);color:#2b2100;border-radius:12px;padding:6px 12px;font-weight:900;font-size:16px;letter-spacing:.5px;box-shadow:0 2px 0 #7a5a00}
+.chips{display:flex;gap:6px}.chip{background:#06142e;border:1px solid #2a4a80;border-radius:999px;padding:5px 10px;font-weight:800;font-size:14px;color:#fff}.chip i{color:#ffcc33;font-style:normal;margin-right:3px}
+.field{position:relative;border-radius:10px;overflow:hidden;border:3px solid #06142e}
+canvas{display:block;width:100%;background:#4de0ea}
+.bot{display:flex;gap:8px;margin-top:10px}
+#fl{flex:1;border:0;border-radius:14px;padding:12px 0;background:linear-gradient(180deg,#ffe45c,#f2b705);color:#2b2100;font:900 22px "Trebuchet MS",sans-serif;box-shadow:inset 0 3px 0 #fff8,0 4px 0 #7a5a00;letter-spacing:1px}
+#fl:active{transform:translateY(2px);filter:brightness(1.1)}
+#snd{width:54px;border:2px solid #2a4a80;border-radius:14px;background:#0b2a55;color:#fff;font-size:22px}
+#ov{position:absolute;inset:0;background:#000b;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center}
+#ov h1{margin:0;font-size:36px}#ov p{margin:0;font-size:20px;font-weight:700}
+.go{background:#ffe45c;color:#2b2100;border:0;border-radius:14px;padding:14px 30px;font:900 20px "Trebuchet MS",sans-serif}
+</style></head><body>
+<div id="cab">
+  <div class="top"><div class="pill">🐥 FLAPPY BIRD</div><div class="chips"><div class="chip"><i>★</i><span id="s">0</span></div><div class="chip"><i>🏆</i><span id="b">0</span></div></div></div>
+  <div class="field"><canvas id="c" width="320" height="480"></canvas>
+    <div id="ov"><h1>GAME OVER</h1><p id="fs"></p><button class="go" id="go">PLAY AGAIN</button></div></div>
+  <div class="bot"><button id="fl">FLAP 🐥</button><button id="snd">🔊</button></div>
+</div>
 <script>
-const c=document.getElementById('c'),x=c.getContext('2d'),W=360,H=600,G=70,GAP=150;
-function fit(){const h=Math.min(innerHeight-120,innerWidth*600/360);c.style.height=h+'px';c.style.width=h*360/600+'px'}fit();addEventListener('resize',fit);
-let best=0;try{best=+localStorage.getItem('fb_best')||0}catch(e){}
-let y,v,pipes,t,score,state,deadAt;
-const S=document.getElementById('s'),B=document.getElementById('b'),OV=document.getElementById('ov');B.textContent=best;
-function reset(){y=270;v=0;pipes=[];t=0;score=0;state='ready';S.textContent=0;OV.style.display='none'}
-function die(){if(state==='dead')return;state='dead';deadAt=Date.now();if(score>best){best=score;try{localStorage.setItem('fb_best',best)}catch(e){}}B.textContent=best;document.getElementById('fs').textContent='Score '+score+' · Best '+best;OV.style.display='flex'}
-function flap(e){if(e&&e.target&&e.target.id==='go')return;if(state==='dead')return;state='play';v=-7.4}
-addEventListener('pointerdown',flap);addEventListener('keydown',e=>{if(e.code==='Space'||e.key==='ArrowUp'){e.preventDefault();flap()}});
-document.getElementById('go').addEventListener('click',()=>{if(Date.now()-deadAt>300)reset()});
+const $=i=>document.getElementById(i),c=$('c'),x=c.getContext('2d'),W=320,H=480,G=44,GAP=130,cab=$('cab');
+function fit(){const s=Math.min(innerWidth/376,innerHeight/(cab.offsetHeight+16),1.5);cab.style.transform='translate(-50%,-50%) scale('+s+')'}addEventListener('resize',fit);fit();
+let best=0,sound=true;try{best=+localStorage.getItem('fb_best')||0}catch(e){}$('b').textContent=best;
+let AC;function beep(f,d,ty){if(!sound)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=ty||'square';o.frequency.value=f;g.gain.value=.05;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+$('snd').addEventListener('click',()=>{sound=!sound;$('snd').textContent=sound?'🔊':'🔇'});
+let y,v,pipes,t,score,state,deadAt,clouds=[[40,70,22],[190,120,26],[290,60,18]];
+function reset(){y=220;v=0;pipes=[];t=0;score=0;state='ready';$('s').textContent=0;$('ov').style.display='none'}
+function die(){if(state==='dead')return;state='dead';deadAt=Date.now();beep(130,.4,'sawtooth');if(score>best){best=score;try{localStorage.setItem('fb_best',best)}catch(e){}}$('b').textContent=best;$('fs').textContent='Score '+score+' · Best '+best;$('ov').style.display='flex'}
+function flap(){if(state==='dead')return;state='play';v=-6.6;beep(520,.08)}
+c.addEventListener('pointerdown',e=>{e.preventDefault();flap()});$('fl').addEventListener('pointerdown',e=>{e.preventDefault();flap()});
+addEventListener('keydown',e=>{if(e.code==='Space'||e.key==='ArrowUp'){e.preventDefault();flap()}});
+$('go').addEventListener('click',()=>{if(Date.now()-deadAt>300)reset()});
 function step(){
-  if(state==='play'){v+=.42;y+=v;t++;
-    if(t%88===1)pipes.push({x:W,g:60+Math.random()*(H-G-GAP-120),d:0});
-    for(const p of pipes){p.x-=2.5;if(!p.d&&p.x+54<90){p.d=1;score++;S.textContent=score}
-      if(90+13>p.x&&90-13<p.x+54&&(y-13<p.g||y+13>p.g+GAP))die()}
-    pipes=pipes.filter(p=>p.x>-60);
-    if(y+13>H-G||y-13<0)die();
-  } else if(state==='ready'){y=270+Math.sin(Date.now()/200)*8}
+  for(const k of clouds){k[0]-=.25;if(k[0]<-60)k[0]=W+60}
+  if(state==='play'){v+=.38;y+=v;t++;
+    if(t%92===1)pipes.push({x:W,g:50+Math.random()*(H-G-GAP-100),d:0});
+    for(const p of pipes){p.x-=2.3;if(!p.d&&p.x+48<80){p.d=1;score++;$('s').textContent=score;beep(880,.07,'triangle')}
+      if(80+12>p.x&&80-12<p.x+48&&(y-12<p.g||y+12>p.g+GAP))die()}
+    pipes=pipes.filter(p=>p.x>-60);if(y+12>H-G||y-12<0)die()
+  }else if(state==='ready')y=220+Math.sin(Date.now()/220)*9
 }
 function draw(){
-  const g=x.createLinearGradient(0,0,0,H);g.addColorStop(0,'#38d6e6');g.addColorStop(1,'#8defee');x.fillStyle=g;x.fillRect(0,0,W,H);
-  x.fillStyle='#fff';for(const[cx,cy,r]of[[60,90,26],[250,150,32],[330,60,20]]){x.beginPath();x.arc(cx,cy,r,0,7);x.arc(cx+r,cy+6,r*.8,0,7);x.arc(cx-r,cy+8,r*.7,0,7);x.fill()}
-  for(const p of pipes){x.fillStyle='#4cc23a';x.fillRect(p.x,0,54,p.g);x.fillRect(p.x,p.g+GAP,54,H);x.fillStyle='#2f8f22';x.fillRect(p.x-4,p.g-22,62,22);x.fillRect(p.x-4,p.g+GAP,62,22)}
-  x.fillStyle='#e8d98b';x.fillRect(0,H-G,W,G);x.fillStyle='#d4c066';for(let i=-(t*2.5%40);i<W;i+=40)x.fillRect(i,H-G,20,14);
-  x.save();x.translate(90,y);x.rotate(Math.max(-.5,Math.min(1.1,v/10)));x.fillStyle='#ffd23f';x.beginPath();x.arc(0,0,14,0,7);x.fill();x.fillStyle='#fff';x.beginPath();x.arc(6,-5,5,0,7);x.fill();x.fillStyle='#000';x.beginPath();x.arc(8,-5,2,0,7);x.fill();x.fillStyle='#ff7a00';x.fillRect(10,2,12,6);x.restore();
-  if(state==='ready'){x.fillStyle='#0008';x.fillRect(60,H/2-50,240,70);x.fillStyle='#fff';x.font='bold 24px system-ui';x.textAlign='center';x.fillText('TAP TO FLAP',W/2,H/2-8)}
-  x.fillStyle='#fff';x.strokeStyle='#0006';x.lineWidth=5;x.font='bold 56px system-ui';x.textAlign='center';x.strokeText(score,W/2,90);x.fillText(score,W/2,90);
+  x.fillStyle='#4de0ea';x.fillRect(0,0,W,H);
+  x.fillStyle='#fff';for(const[cx,cy,r]of clouds){x.beginPath();x.arc(cx,cy,r,0,7);x.arc(cx+r*.9,cy+4,r*.8,0,7);x.arc(cx-r*.9,cy+6,r*.7,0,7);x.fill()}
+  for(const p of pipes){x.fillStyle='#53c13a';x.fillRect(p.x,0,48,p.g);x.fillRect(p.x,p.g+GAP,48,H);x.fillStyle='#2f8f22';x.fillRect(p.x-4,p.g-20,56,20);x.fillRect(p.x-4,p.g+GAP,56,20);x.fillStyle='#8be06f';x.fillRect(p.x+6,0,6,p.g-20);x.fillRect(p.x+6,p.g+GAP+20,6,H)}
+  x.fillStyle='#f3e58a';x.fillRect(0,H-G,W,G);x.fillStyle='#e0cf6c';for(let i=-(t*2.3%32);i<W;i+=32)x.fillRect(i,H-G,16,G);x.fillStyle='#c9b84f';x.fillRect(0,H-G,W,4);
+  x.save();x.translate(80,y);x.rotate(Math.max(-.45,Math.min(1,v/11)));
+  x.fillStyle='#ffd23f';x.beginPath();x.arc(0,0,13,0,7);x.fill();x.fillStyle='#f5a500';x.beginPath();x.ellipse(-3,4,7,5,.4+Math.sin(t/3)*.4,0,7);x.fill();
+  x.fillStyle='#fff';x.beginPath();x.arc(5,-5,5,0,7);x.fill();x.fillStyle='#111';x.beginPath();x.arc(6.5,-5,2.2,0,7);x.fill();x.fillStyle='#ff7a00';x.beginPath();x.moveTo(11,0);x.lineTo(20,3);x.lineTo(11,6);x.fill();x.restore();
+  if(state==='ready'){x.fillStyle='#0007';x.fillRect(50,170,220,56);x.fillStyle='#fff';x.font='bold 22px Trebuchet MS, system-ui, sans-serif';x.textAlign='center';x.fillText('TAP FLAP TO START',W/2,205)}
+  x.textAlign='center';x.font='bold 54px Trebuchet MS, system-ui, sans-serif';x.lineWidth=6;x.strokeStyle='#0007';x.strokeText(score,W/2,80);x.fillStyle='#fff';x.fillText(score,W/2,80)
 }
 reset();(function loop(){step();draw();requestAnimationFrame(loop)})();
 </script></body></html>

@@ -1,24 +1,47 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Snake</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b141a;color:#fff;font-family:system-ui,Segoe UI,Roboto,sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}#wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}canvas{display:block;border-radius:16px;box-shadow:0 0 0 4px #1f2c34,0 10px 40px #0008}.hud{display:flex;gap:10px;font-weight:700;font-size:14px;letter-spacing:.5px}.pill{background:#1f2c34;padding:6px 12px;border-radius:999px}.btn{background:#00e5ff;color:#001;border:0;border-radius:12px;padding:14px 22px;font-size:18px;font-weight:800}.ctl{display:flex;gap:10px;width:min(92vw,360px)}.ctl button{flex:1;padding:16px 0;border:0;border-radius:14px;background:#1f2c34;color:#fff;font-size:18px;font-weight:800}.ctl button:active{background:#00a884}#ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#000a;text-align:center}#ov h1{margin:0;font-size:34px}#ov p{margin:0;font-size:20px}</style></head><body><div id="wrap"><div class="hud"><span class="pill">🐍 SNAKE</span><span class="pill">SCORE <b id="s">0</b></span><span class="pill">🏆 <b id="b">0</b></span></div><canvas id="c" width="360" height="360"></canvas><div class="ctl" style="flex-wrap:wrap;justify-content:center"><button id="u" style="flex:1 1 100%">▲</button><button id="l">◀</button><button id="d">▼</button><button id="r">▶</button></div></div><div id="ov"><h1>GAME OVER</h1><p id="fs"></p><button class="btn" id="go">PLAY AGAIN</button></div>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Snake</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#04140c;overflow:hidden;font-family:"Trebuchet MS",system-ui,sans-serif;color:#fff;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#cab{position:absolute;left:50%;top:50%;width:360px;transform-origin:center;padding:14px 14px 16px;border-radius:30px;background:linear-gradient(160deg,#0c4a2c,#06241a 60%,#0a3a40);box-shadow:0 0 0 4px #39ff88,0 0 0 8px #04140c,0 0 0 10px #17c9a8,0 0 44px #1fd17a88}
+.led{height:10px;margin:0 6px 10px;background:radial-gradient(circle,#7dffb5 3px,transparent 3.6px) 0 0/16px 10px repeat-x}
+.title{border-radius:16px;border:3px solid #6dffaa;padding:8px 0 9px;text-align:center;font-weight:900;font-size:34px;letter-spacing:4px;background:linear-gradient(180deg,#27b86a,#0f6b3d 60%,#0b4a52);text-shadow:0 0 8px #7dffb5,0 2px 0 #000a;box-shadow:inset 0 0 14px #6dffaa66}
+.stats{display:flex;margin:10px 0;border:2px solid #1f7a4d;border-radius:12px;background:#04180f;overflow:hidden}
+.stats div{flex:1;text-align:center;padding:5px 0;border-right:2px solid #11452c}.stats div:last-child{border:0}
+.stats small{display:block;font-size:12px;letter-spacing:1px}.stats b{font:800 24px "Courier New",monospace;color:#7dffb5;text-shadow:0 0 8px #7dffb5}
+.field{position:relative;border-radius:16px;padding:5px;background:linear-gradient(135deg,#39ff88,#17c9a8)}
+canvas{display:block;width:100%;border-radius:12px}
+.pad{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.pad button{border:0;border-radius:14px;padding:12px 0;color:#fff;font:900 24px sans-serif;background:linear-gradient(180deg,#2fc77a,#127a48);box-shadow:inset 0 3px 0 #fff5,0 4px 0 #0007}
+.pad button:active{transform:translateY(2px);filter:brightness(1.2)}.pad .u{grid-column:2}.pad .l{grid-column:1;grid-row:2}.pad .d{grid-column:2;grid-row:2}.pad .r{grid-column:3;grid-row:2}
+#ov{position:absolute;inset:5px;border-radius:12px;background:#000c;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+#ov h1{margin:0;font-size:36px;text-shadow:0 0 12px #39ff88}#ov p{margin:0;font-size:22px;font-weight:700}
+.go{background:#7dffb5;color:#042;border:0;border-radius:14px;padding:16px 34px;font:900 22px "Trebuchet MS",sans-serif;box-shadow:0 0 18px #39ff8899}
+</style></head><body>
+<div id="cab"><div class="led"></div><div class="title">🐍 SNAKE</div>
+  <div class="stats"><div><small>SCORE</small><b id="s">0</b></div><div><small>LENGTH</small><b id="ln">3</b></div><div><small>BEST</small><b id="b">0</b></div></div>
+  <div class="field"><canvas id="c" width="320" height="320"></canvas><div id="ov"><h1>GAME OVER</h1><p id="fs"></p><button class="go" id="go">PLAY AGAIN</button></div></div>
+  <div class="pad"><button class="u" id="u">▲</button><button class="l" id="l">◀</button><button class="d" id="d">▼</button><button class="r" id="r">▶</button></div>
+</div>
 <script>
-const c=document.getElementById('c'),x=c.getContext('2d'),N=18,Z=20;
-function fit(){const s=Math.min(innerWidth-20,innerHeight-260,360);c.style.width=c.style.height=s+'px'}fit();addEventListener('resize',fit);
-let best=0;try{best=+localStorage.getItem('sn_best')||0}catch(e){}
-const S=document.getElementById('s'),B=document.getElementById('b'),OV=document.getElementById('ov');B.textContent=best;
+const $=i=>document.getElementById(i),c=$('c'),x=c.getContext('2d'),N=16,Z=20,cab=$('cab');
+function fit(){const s=Math.min(innerWidth/384,innerHeight/(cab.offsetHeight+16),1.5);cab.style.transform='translate(-50%,-50%) scale('+s+')'}addEventListener('resize',fit);fit();
+let best=0;try{best=+localStorage.getItem('sn_best')||0}catch(e){}$('b').textContent=best;
+let AC;function beep(f,d,ty){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=ty||'square';o.frequency.value=f;g.gain.value=.04;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
 let sn,dir,nd,food,score,over,timer,started;
 function place(){do{food={x:Math.floor(Math.random()*N),y:Math.floor(Math.random()*N)}}while(sn.some(p=>p.x===food.x&&p.y===food.y))}
-function reset(){sn=[{x:9,y:9},{x:8,y:9},{x:7,y:9}];dir=nd={x:1,y:0};score=0;over=false;started=false;S.textContent=0;OV.style.display='none';place();clearInterval(timer);timer=setInterval(step,120);draw()}
+function reset(){sn=[{x:8,y:8},{x:7,y:8},{x:6,y:8}];dir=nd={x:1,y:0};score=0;over=false;started=false;$('s').textContent=0;$('ln').textContent=3;$('ov').style.display='none';place();clearInterval(timer);timer=setInterval(step,125);draw()}
 function turn(dx,dy){if(over)return;started=true;if(dx===-dir.x&&dy===-dir.y)return;nd={x:dx,y:dy}}
-for(const[id,dx,dy]of[['u',0,-1],['d',0,1],['l',-1,0],['r',1,0]])document.getElementById(id).addEventListener('pointerdown',e=>{e.preventDefault();turn(dx,dy)});
+for(const[id,dx,dy]of[['u',0,-1],['d',0,1],['l',-1,0],['r',1,0]])$(id).addEventListener('pointerdown',e=>{e.preventDefault();turn(dx,dy)});
 addEventListener('keydown',e=>{const m={ArrowUp:[0,-1],ArrowDown:[0,1],ArrowLeft:[-1,0],ArrowRight:[1,0],w:[0,-1],s:[0,1],a:[-1,0],d:[1,0]}[e.key];if(m){e.preventDefault();turn(...m)}});
 let sx,sy;c.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY});c.addEventListener('pointerup',e=>{const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.max(Math.abs(dx),Math.abs(dy))<20)return;Math.abs(dx)>Math.abs(dy)?turn(dx>0?1:-1,0):turn(0,dy>0?1:-1)});
-document.getElementById('go').addEventListener('click',reset);
-function die(){over=true;clearInterval(timer);if(score>best){best=score;try{localStorage.setItem('sn_best',best)}catch(e){}}B.textContent=best;document.getElementById('fs').textContent='Score '+score+' · Best '+best;OV.style.display='flex'}
+$('go').addEventListener('click',reset);
+function die(){over=true;clearInterval(timer);beep(120,.5,'sawtooth');if(score>best){best=score;try{localStorage.setItem('sn_best',best)}catch(e){}}$('b').textContent=best;$('fs').textContent='Score '+score+' · Best '+best;$('ov').style.display='flex'}
 function step(){if(over||!started)return;dir=nd;const h={x:sn[0].x+dir.x,y:sn[0].y+dir.y};
   if(h.x<0||h.y<0||h.x>=N||h.y>=N||sn.some(p=>p.x===h.x&&p.y===h.y))return die();
-  sn.unshift(h);if(h.x===food.x&&h.y===food.y){score++;S.textContent=score;place()}else sn.pop();draw()}
-function draw(){x.fillStyle='#10201a';x.fillRect(0,0,360,360);x.fillStyle='#14281f';for(let i=0;i<N;i++)for(let j=0;j<N;j++)if((i+j)%2)x.fillRect(i*Z,j*Z,Z,Z);
-  x.fillStyle='#ff5252';x.beginPath();x.arc(food.x*Z+10,food.y*Z+10,8,0,7);x.fill();
-  sn.forEach((p,i)=>{x.fillStyle=i?'#37d67a':'#a6ff9e';x.beginPath();x.roundRect(p.x*Z+1,p.y*Z+1,Z-2,Z-2,6);x.fill()});
-  if(!started){x.fillStyle='#0008';x.fillRect(60,150,240,60);x.fillStyle='#fff';x.font='bold 20px system-ui';x.textAlign='center';x.fillText('SWIPE or TAP ARROWS',180,186)}}
+  sn.unshift(h);if(h.x===food.x&&h.y===food.y){score++;$('s').textContent=score;$('ln').textContent=sn.length;beep(760,.08,'triangle');place()}else sn.pop();draw()}
+function draw(){x.fillStyle='#0c2a1c';x.fillRect(0,0,320,320);x.fillStyle='#0f3322';for(let i=0;i<N;i++)for(let j=0;j<N;j++)if((i+j)%2)x.fillRect(i*Z,j*Z,Z,Z);
+  x.save();x.shadowColor='#ff5252';x.shadowBlur=12;x.fillStyle='#ff5252';x.beginPath();x.arc(food.x*Z+10,food.y*Z+10,8,0,7);x.fill();x.restore();
+  sn.forEach((p,i)=>{x.fillStyle=i?'#37d67a':'#b6ffae';x.beginPath();x.roundRect(p.x*Z+1,p.y*Z+1,Z-2,Z-2,6);x.fill()});
+  if(!started){x.fillStyle='#000a';x.fillRect(40,135,240,50);x.fillStyle='#fff';x.font='bold 18px Trebuchet MS, system-ui, sans-serif';x.textAlign='center';x.fillText('SWIPE or TAP ARROWS',160,166)}}
 reset();
 </script></body></html>

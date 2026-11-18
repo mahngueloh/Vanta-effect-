@@ -1,33 +1,70 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Turbo Highway</title><style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0b141a;color:#fff;font-family:system-ui,Segoe UI,Roboto,sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none;overflow:hidden}#wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}canvas{display:block;border-radius:16px;box-shadow:0 0 0 4px #1f2c34,0 10px 40px #0008}.hud{display:flex;gap:10px;font-weight:700;font-size:14px;letter-spacing:.5px}.pill{background:#1f2c34;padding:6px 12px;border-radius:999px}.btn{background:#00e5ff;color:#001;border:0;border-radius:12px;padding:14px 22px;font-size:18px;font-weight:800}.ctl{display:flex;gap:10px;width:min(92vw,360px)}.ctl button{flex:1;padding:16px 0;border:0;border-radius:14px;background:#1f2c34;color:#fff;font-size:18px;font-weight:800}.ctl button:active{background:#00a884}#ov{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#000a;text-align:center}#ov h1{margin:0;font-size:34px}#ov p{margin:0;font-size:20px}</style></head><body><div id="wrap"><div class="hud"><span class="pill">🏎️ TURBO HIGHWAY</span><span class="pill">SCORE <b id="s">0</b></span><span class="pill">🏆 <b id="b">0</b></span></div><canvas id="c" width="360" height="520"></canvas><div class="ctl"><button id="L">◀ LEFT</button><button id="Bo" style="background:#a4122f">▲ BOOST</button><button id="R">RIGHT ▶</button></div></div><div id="ov"><h1>CRASHED!</h1><p id="fs"></p><button class="btn" id="go">RACE AGAIN</button></div>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>Turbo Highway</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#0a0618;overflow:hidden;font-family:"Trebuchet MS",system-ui,sans-serif;color:#fff;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#cab{position:absolute;left:50%;top:50%;width:360px;transform-origin:center;padding:14px 14px 16px;border-radius:30px;background:linear-gradient(160deg,#3b0f6b,#150736 60%,#0b2a5c);box-shadow:0 0 0 4px #ff2d95,0 0 0 8px #1a0836,0 0 0 10px #2bb8ff,0 0 44px #7c4dff}
+.led{height:10px;margin:0 6px 10px;background:radial-gradient(circle,#5fe3ff 3px,transparent 3.6px) 0 0/16px 10px repeat-x}
+.title{border-radius:16px;border:3px solid #ff6fb5;padding:8px 0 9px;text-align:center;font-weight:900;font-size:34px;line-height:1.05;letter-spacing:2px;background:linear-gradient(180deg,#b13bd1,#5a1d9a 60%,#2a2fa8);text-shadow:0 0 8px #5fe3ff,0 2px 0 #000a;box-shadow:inset 0 0 14px #ff6fb577}
+.stats{display:flex;margin:10px 0;border:2px solid #5a2a9a;border-radius:12px;background:#0c0522;overflow:hidden}
+.stats div{flex:1;text-align:center;padding:5px 0;border-right:2px solid #2a1458}.stats div:last-child{border:0}
+.stats small{display:block;font-size:12px;letter-spacing:1px}.stats b{font:800 24px "Courier New",monospace;color:#3de8ff;text-shadow:0 0 8px #3de8ff}
+.road{position:relative;border-radius:16px;padding:5px;background:linear-gradient(135deg,#ff2d95,#3b8cff)}
+canvas{display:block;width:100%;border-radius:12px;background:#262237}
+.status{margin:10px 0;border-radius:10px;background:#12072e;border:2px solid #3a1a6a;text-align:center;padding:7px 0;font-weight:800;letter-spacing:3px;color:#3de8ff;text-shadow:0 0 8px #3de8ff}
+.btns{display:flex;gap:8px}
+.btns button{flex:1;border:0;border-radius:14px;padding:8px 0 10px;color:#fff;font:900 19px "Trebuchet MS",sans-serif;line-height:1.1;box-shadow:inset 0 3px 0 #fff5,0 4px 0 #0007;background:linear-gradient(180deg,#b04be0,#6a22b8)}
+.btns button span{display:block;font-size:22px}
+.btns button.boost{background:linear-gradient(180deg,#ff5f9e,#d81b6a)}
+.btns button:active{transform:translateY(2px);filter:brightness(1.2)}
+#ov{position:absolute;inset:5px;border-radius:12px;background:#000c;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+#ov h1{margin:0;font-size:38px;text-shadow:0 0 12px #ff2d95}#ov p{margin:0;font-size:22px;font-weight:700}
+.go{background:#00e5ff;color:#001;border:0;border-radius:14px;padding:16px 34px;font:900 22px "Trebuchet MS",sans-serif;box-shadow:0 0 18px #00e5ff99}
+</style></head><body>
+<div id="cab">
+  <div class="led"></div>
+  <div class="title">TURBO<br>HIGHWAY</div>
+  <div class="stats"><div><small>SCORE</small><b id="s">0</b></div><div><small>SPEED</small><b id="sp">60 MPH</b></div><div><small>BEST</small><b id="b">0</b></div></div>
+  <div class="road"><canvas id="c" width="300" height="330"></canvas>
+    <div id="ov"><h1>CRASHED!</h1><p id="fs"></p><button class="go" id="go">RACE AGAIN</button></div></div>
+  <div class="status" id="st">DODGE CARS!</div>
+  <div class="btns"><button id="L"><span>◀</span>LEFT</button><button id="Bo" class="boost"><span>⚡</span>BOOST</button><button id="R"><span>▶</span>RIGHT</button></div>
+</div>
 <script>
-const c=document.getElementById('c'),x=c.getContext('2d'),W=360,H=520,RX=40,RW=280,LW=RW/3;
-function fit(){const h=Math.min(innerHeight-200,innerWidth*520/360);c.style.height=h+'px';c.style.width=h*360/520+'px'}fit();addEventListener('resize',fit);
-let best=0;try{best=+localStorage.getItem('tr_best')||0}catch(e){}
-const S=document.getElementById('s'),B=document.getElementById('b'),OV=document.getElementById('ov');B.textContent=best;
-let lane,px,cars,t,score,speed,boost,over,off,spawn;
-function reset(){lane=1;px=RX+LW*1.5;cars=[];t=0;score=0;speed=4;boost=false;over=false;off=0;spawn=40;S.textContent=0;OV.style.display='none'}
-function move(d){if(over)return;lane=Math.max(0,Math.min(2,lane+d))}
-function press(id,fn,up){const e=document.getElementById(id);e.addEventListener('pointerdown',ev=>{ev.preventDefault();fn()});if(up)e.addEventListener('pointerup',up),e.addEventListener('pointerleave',up)}
-press('L',()=>move(-1));press('R',()=>move(1));press('Bo',()=>boost=true,()=>boost=false);
-addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a')move(-1);if(e.key==='ArrowRight'||e.key==='d')move(1);if(e.key==='ArrowUp'||e.key===' ')boost=true});addEventListener('keyup',e=>{if(e.key==='ArrowUp'||e.key===' ')boost=false});
+const $=i=>document.getElementById(i),c=$('c'),x=c.getContext('2d'),W=300,H=330,LW=W/3,PY=H-70,cab=$('cab');
+function fit(){const s=Math.min(innerWidth/384,innerHeight/(cab.offsetHeight+16),1.5);cab.style.transform='translate(-50%,-50%) scale('+s+')'}
+addEventListener('resize',fit);fit();
+let best=0;try{best=+localStorage.getItem('tr_best')||0}catch(e){}$('b').textContent=best;
+let AC;function beep(f,d,ty){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=ty||'square';o.frequency.value=f;g.gain.value=.05;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.stop(AC.currentTime+d)}catch(e){}}
+let lane,px,cars,coins,t,score,sp,boost,over,off,spawn,cspawn,stT;
+function status(m,ms){$('st').textContent=m;stT=ms?t+ms:0}
+function reset(){lane=1;px=LW*1.5;cars=[];coins=[];t=0;score=0;sp=4;boost=false;over=false;off=0;spawn=30;cspawn=100;$('s').textContent=0;$('ov').style.display='none';status('DODGE CARS!')}
+function move(d){if(over)return;lane=Math.max(0,Math.min(2,lane+d));beep(300,.05)}
+function hold(id,down,up){const e=$(id);e.addEventListener('pointerdown',ev=>{ev.preventDefault();down()});if(up){e.addEventListener('pointerup',up);e.addEventListener('pointerleave',up);e.addEventListener('pointercancel',up)}}
+hold('L',()=>move(-1));hold('R',()=>move(1));hold('Bo',()=>{boost=true;status('BOOSTING!')},()=>{boost=false});
+addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='a')move(-1);if(e.key==='ArrowRight'||e.key==='d')move(1);if(e.key==='ArrowUp'||e.key===' '){boost=true}});addEventListener('keyup',e=>{if(e.key==='ArrowUp'||e.key===' ')boost=false});
 let sx=0;c.addEventListener('pointerdown',e=>sx=e.clientX);c.addEventListener('pointerup',e=>{const d=e.clientX-sx;if(Math.abs(d)>20)move(d>0?1:-1)});
-document.getElementById('go').addEventListener('click',reset);
-function die(){over=true;if(score>best){best=score;try{localStorage.setItem('tr_best',best)}catch(e){}}B.textContent=best;document.getElementById('fs').textContent='Final Score: '+score;OV.style.display='flex'}
-function car(cx,cy,col,pl){x.fillStyle=col;x.beginPath();x.roundRect(cx-17,cy-30,34,60,8);x.fill();x.fillStyle='#0009';x.fillRect(cx-12,cy-14,24,14);x.fillRect(cx-12,cy+10,24,8);if(pl){x.fillStyle='#fff';x.fillRect(cx-14,cy-30,6,5);x.fillRect(cx+8,cy-30,6,5)}}
+$('go').addEventListener('click',reset);
+function die(){over=true;beep(120,.5,'sawtooth');if(score>best){best=score;try{localStorage.setItem('tr_best',best)}catch(e){}}$('b').textContent=best;$('fs').textContent='Final Score: '+score;$('ov').style.display='flex'}
 function step(){
-  if(over)return;t++;const sp=speed+(boost?3.5:0);off=(off+sp)%60;
-  const tx=RX+LW*(lane+.5);px+=(tx-px)*.28;
-  speed=4+Math.min(6,t/900);score+=Math.round(sp/4);S.textContent=score;
-  if(--spawn<=0){const l=Math.floor(Math.random()*3);cars.push({l,y:-40,c:['#ff3d71','#ffb300','#7c4dff','#00c853'][Math.floor(Math.random()*4)]});spawn=Math.max(22,60-t/40)*(4/ sp)*1.4}
-  for(const e of cars){e.y+=sp*.9;const ex=RX+LW*(e.l+.5);if(Math.abs(ex-px)<30&&Math.abs(e.y-(H-90))<52)die()}
-  cars=cars.filter(e=>e.y<H+60);
+  if(over)return;t++;const eff=sp+(boost?3.5:0);off=(off+eff)%60;
+  px+=(LW*(lane+.5)-px)*.3;sp=4+Math.min(6,t/900);
+  score+=Math.max(1,Math.round(eff/4));$('s').textContent=score;$('sp').textContent=Math.round(eff*10+20)+' MPH';
+  if(stT&&t>stT)status('DODGE CARS!');
+  if(--spawn<=0){cars.push({l:Math.floor(Math.random()*3),y:-40,c:['#ff3d71','#ffb300','#7c4dff','#00c853','#29b6f6'][Math.floor(Math.random()*5)]});spawn=Math.max(20,58-t/40)*(4/eff)*1.5}
+  if(--cspawn<=0){coins.push({l:Math.floor(Math.random()*3),y:-20});cspawn=90+Math.random()*120}
+  for(const e of cars){e.y+=eff*.9;if(Math.abs(LW*(e.l+.5)-px)<27&&Math.abs(e.y-PY)<46)die()}
+  for(const k of coins){k.y+=eff*.9;if(!k.g&&Math.abs(LW*(k.l+.5)-px)<26&&Math.abs(k.y-PY)<34){k.g=1;score+=25;status('COIN +25!',50);beep(880,.12,'triangle')}}
+  cars=cars.filter(e=>e.y<H+60);coins=coins.filter(k=>k.y<H+30&&!k.g)
 }
+function car(cx,cy,col,pl){x.save();if(pl){x.shadowColor=col;x.shadowBlur=14}x.fillStyle=col;x.beginPath();x.roundRect(cx-17,cy-30,34,60,9);x.fill();x.restore();x.fillStyle='#0009';x.fillRect(cx-12,cy-15,24,14);x.fillRect(cx-12,cy+9,24,8);x.fillStyle='#fff7';x.fillRect(cx-14,cy-30,5,4);x.fillRect(cx+9,cy-30,5,4)}
 function draw(){
-  x.fillStyle='#0c0a1a';x.fillRect(0,0,W,H);x.fillStyle='#1a1530';x.fillRect(0,0,RX,H);x.fillRect(RX+RW,0,RX,H);
-  x.fillStyle='#262237';x.fillRect(RX,0,RW,H);x.fillStyle='#ff2d95';x.fillRect(RX-4,0,4,H);x.fillRect(RX+RW,0,4,H);
-  x.fillStyle='#fff6';for(let l=1;l<3;l++)for(let i=-60;i<H;i+=60)x.fillRect(RX+LW*l-2,i+off,4,30);
-  for(const e of cars)car(RX+LW*(e.l+.5),e.y,e.c,false);car(px,H-90,boost?'#00e5ff':'#18ffff',true);
-  if(boost&&!over){x.fillStyle='#ff9100';x.beginPath();x.moveTo(px-8,H-58);x.lineTo(px,H-30+Math.random()*14);x.lineTo(px+8,H-58);x.fill()}
+  x.fillStyle='#2a2540';x.fillRect(0,0,W,H);
+  x.save();x.shadowColor='#ff2d95';x.shadowBlur=10;x.fillStyle='#ff4aa5';x.fillRect(8,0,4,H);x.fillRect(W-12,0,4,H);x.restore();
+  x.fillStyle='#fff';for(let l=1;l<3;l++)for(let i=-60;i<H;i+=60)x.fillRect(LW*l-3,i+off,6,32);
+  for(const k of coins){x.fillStyle='#ffd84a';x.beginPath();x.arc(LW*(k.l+.5),k.y,9,0,7);x.fill();x.fillStyle='#fff9';x.beginPath();x.arc(LW*(k.l+.5)-3,k.y-3,3,0,7);x.fill()}
+  for(const e of cars)car(LW*(e.l+.5),e.y,e.c);
+  car(px,PY,boost?'#7df9ff':'#27e6ff',true);
+  if(boost&&!over){x.fillStyle='#ff9100';x.beginPath();x.moveTo(px-8,PY+30);x.lineTo(px,PY+46+Math.random()*14);x.lineTo(px+8,PY+30);x.fill()}
 }
 reset();(function loop(){step();draw();requestAnimationFrame(loop)})();
 </script></body></html>
