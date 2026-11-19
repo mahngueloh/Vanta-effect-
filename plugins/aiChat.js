@@ -151,4 +151,4 @@ function addToHistory(from, userMsg, botMsg) {
     historyMap.set(from, hist)
 }
 
-module.exports = { aiReply, getStatus }
+module.exports = { aiReply, getStatus, extractImageInput }

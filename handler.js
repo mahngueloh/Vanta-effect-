@@ -53,6 +53,7 @@ const { handleAdult }           = require('./plugins/adult')
 const { downloadMedia, downloadApk } = require('./plugins/downloader')
 const { gameCmds, handleGame }   = require('./plugins/games')
 const { arcadeCmds, handleArcade } = require('./plugins/arcade')
+const { nexAiCmds, handleNexAI } = require('./plugins/nexrayAI')
 const { aiReply }               = require('./plugins/aiChat')
 const { selfCodeReply }         = require('./plugins/selfCode')
 const { getStatus: getAiStatus } = require('./lib/aiProviders')
@@ -471,6 +472,10 @@ async function handleMessage(sock, msg) {
         // Un-decorated socket so boards don't get the joke tagline; exempt from the 3 s cooldown above.
         if (arcadeCmds.has(cmd)) {
             return handleArcade(plainSock, from, cmd, args, msg, sender)
+        }
+        // ── Nexray AIs: .aimodels lists them; each one has its own command ──
+        if (nexAiCmds.has(cmd)) {
+            return handleNexAI(plainSock, from, cmd, [...args], msg)
         }
         if (gameCmds.has(cmd)) {
             return handleGame(plainSock, from, cmd, args, msg, sender)

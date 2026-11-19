@@ -131,6 +131,10 @@ function menuData() {
         ai: [
             'chat', 'ai', 'ask', 'gpt', 'claude', 'gemini', 'deepseek', 'analyze', 'code', 'mycode', 'agent',
             'remember', 'agentrefresh', 'agentstatus', 'story', 'recipe', 'summarize', 'teach', 'generate', 'translate',
+            'aimodels', 'nxai', 'chatgpt', 'copilot', 'kimi', 'glm', 'venice', 'felo', 'monica', 'perplexity', 'deepsearch', 'webpilot',
+            'turboseek', 'morphic', 'epsilon', 'llamacoder', 'mathgpt', 'grammar', 'humanize', 'quillbot', 'dream', 'homework',
+            'islamai', 'gitagpt', 'imagine', 'flux', 'ideogram', 'magicstudio', 'vider', 'deepimg', 'logo', 'vision', 'img2prompt',
+            'nanobanana', 'gptimage', 'tts', 'dracintts', 'suno', 'veo2', 'veo3',
         ],
         groups: [
             'kick', 'add', 'ban', 'unban', 'promote', 'demote', 'mute', 'unmute', 'kickall', 'tagall',

@@ -315,4 +315,4 @@ async function getRemoveBackground(sock, from, msg) {
 
 const apiKeyHint = `💡 For a reliable fallback, get a free remove.bg API key at https://www.remove.bg/api (50 free/month) and set REMOVEBG_API_KEY in your .env`
 
-module.exports = { getWallpaper, getRemini, getRemoveBackground }
+module.exports = { getWallpaper, getRemini, getRemoveBackground, uploadPublic }
