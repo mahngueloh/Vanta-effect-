@@ -43,7 +43,8 @@ async function humanSend(sock, from, text, msg, inGroup) {
     await sleep(rand(600, 1400))                                   // "reads" it first
     try { await sock.sendPresenceUpdate('composing', from) } catch {}
     await sleep(Math.min(6000, Math.max(1200, text.length * 35 + rand(300, 900))))   // "types" it
-    const sent = await sock.sendMessage(from, { text }, inGroup ? { quoted: msg } : undefined)
+    // Plain text only — quoted like a person tapping "reply" on the message. No box, header or tagline.
+    const sent = await sock.sendMessage(from, { text, __noFun: true }, { quoted: msg })
     try { await sock.sendPresenceUpdate('paused', from) } catch {}
     brain.rememberSent(sent?.key?.id)
 }
@@ -70,9 +71,7 @@ async function converse(sock, msg, from, sender, text, inGroup, { explicit = fal
                 catch (e) {
                     if (explicit) {
                         await sock.sendMessage(from, { text: fmt.box('CHAT', [
-                            e.code === 'NO_TOKEN'
-                                ? `❌ No Hugging Face token yet — use ${config.prefix}hftoken <token>`
-                                : `❌ Couldn't reach the AI right now — try again in a bit`,
+                            `❌ Couldn't reach the AI right now — try again in a bit`,
                         ]) }, { quoted: msg })
                     }
                     break                                       // auto-replies stay silent on errors
@@ -138,16 +137,8 @@ async function handleChatBrainCmd(sock, from, cmd, args, msg, owner, inGroup) {
                 ]))
             }
             if (!map[a]) return reply(fmt.usage('chatbot', 'off|dm|group|all'))
-            if (map[a] !== 'off' && !brain.getToken()) {
-                brain.setScope(map[a])
-                return reply(fmt.box('CHATBOT', [
-                    `${scopeLabel(map[a])}`,
-                    `⚠️ No Hugging Face token yet, so it can only give taught replies (${p}chatteach) for now.`,
-                    `Set it with *${p}hftoken <token>* (in your own chat).`,
-                ]))
-            }
             brain.setScope(map[a])
-            return reply(fmt.box('CHATBOT', [scopeLabel(map[a]), map[a] === 'off' ? '_It will stay quiet._' : `_Model: ${brain.currentModel()}_`]))
+            return reply(fmt.box('CHATBOT', [scopeLabel(map[a]), map[a] === 'off' ? '_It will stay quiet._' : `_Replies like a person, quoting the message — uses Nexray AI (no key needed)._`]))
         }
 
         case 'chatteach': {
@@ -223,8 +214,7 @@ async function handleChatBrainCmd(sock, from, cmd, args, msg, owner, inGroup) {
             const s = brain.getState(), st = brain.stats
             return reply(fmt.box('CHATBOT STATUS', [
                 scopeLabel(s.scope),
-                `🤗 Token: ${brain.getToken() ? 'set ✅' : 'missing ❌'}`,
-                `🧠 Model: ${brain.currentModel()}`,
+                `🧠 Brain: Nexray AI${brain.getToken() ? ' (+ Hugging Face token set)' : ''}`,
                 `📚 Facts: ${s.facts.length}  •  ⚡ Instant replies: ${s.replies.length}`,
                 `✅ ${st.ok} ok  •  ❌ ${st.fail} failed`,
                 st.lastError ? `Last error: ${st.lastError.slice(0, 100)}` : null,

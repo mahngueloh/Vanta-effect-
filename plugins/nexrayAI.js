@@ -110,12 +110,25 @@ async function runCommand(sock, from, a, args, msg) {
 
     let res
     if (a.kind === 'edit') {
-        // POST multipart: image file + param (the prompt)
+        // The docs only say "POST: image, param". Try the file upload first (prompt in both the
+        // query and the form), then the same call with a public link to the picture.
         const FD = require('form-data')
         const form = new FD()
         form.append('image', pic.buf, { filename: 'image.jpg', contentType: pic.mime || 'image/jpeg' })
         form.append('param', text)
-        res = await nexray.call(a.path, { method: 'POST', form, timeout: 120000 })
+        res = await nexray.call(a.path, { method: 'POST', params: { param: text }, form, timeout: 120000 })
+        const ok = r => r.type === 'binary' || (r.type === 'json' && r.json?.status !== false && nexray.pickUrl(r.json))
+        if (!ok(res)) {
+            const first = res
+            try {
+                const { uploadPublic } = require('./image')
+                const up = await uploadPublic(pic.buf, 'image.jpg')
+                const form2 = new FD(); form2.append('image', up.url); form2.append('param', text)
+                const second = await nexray.call(a.path, { method: 'POST', params: { image: up.url, param: text }, form: form2, timeout: 120000 })
+                res = ok(second) ? second : first
+            } catch { res = first }
+            console.log(`[nexrayAI] ${a.cmds[0]} edit attempts → ${first.status}${res !== first ? ' / ' + res.status : ''}`)
+        }
     } else {
         const o = a.opt ? a.opt(args) : {}
         Object.assign(params, o)
