@@ -79,8 +79,8 @@ const runtimeSettings = {
     antideletepath:     'private',
     anticall:           false,
     // autoreact removed entirely per owner request
-    autoviewstatus:     false,   // ℹ️ low risk
-    autoreactstatus:    false,   // ℹ️ low risk
+    autoviewstatus:     !/^(0|false|off|no)$/i.test(process.env.AUTOVIEWSTATUS || ''),   // default ON (env AUTOVIEWSTATUS=off disables)
+    autoreactstatus:    !/^(0|false|off|no)$/i.test(process.env.AUTOREACTSTATUS || ''),  // default ON (env AUTOREACTSTATUS=off disables)
     autosavestatus:     false,
     antibug:            false,
 }
