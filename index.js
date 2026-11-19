@@ -1242,7 +1242,7 @@ async function connect() {
 
                 if (jid === 'status@broadcast') {
                     const poster = msg.key.participant || msg.key.participantAlt || ''
-                    console.log(`[status] new status from ${poster || '?'} | view=${runtimeSettings.autoviewstatus ? 'ON' : 'OFF'} react=${runtimeSettings.autoreactstatus ? 'ON' : 'OFF'} fromMe=${!!msg.key.fromMe}`)
+                    console.log(`[status] new status from ${poster || '?'} | lag=${Math.max(0, Math.round(Date.now()/1000 - Number(msg.messageTimestamp || 0)))}s | view=${runtimeSettings.autoviewstatus ? 'ON' : 'OFF'} react=${runtimeSettings.autoreactstatus ? 'ON' : 'OFF'} fromMe=${!!msg.key.fromMe}`)
                     // detached: never block the message loop (commands) on status work
                     ;(async () => {
                     // view/react first, cache (media download) afterwards
