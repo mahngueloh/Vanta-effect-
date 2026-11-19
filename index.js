@@ -1022,7 +1022,6 @@ async function connect() {
             const mediaType = ['imageMessage', 'videoMessage', 'stickerMessage', 'audioMessage']
                 .find(t => inner?.[t])
             const text = getBody(msg)
-            console.log('[cache-debug] keyId=' + msg.key.id + ' messageContextInfo=' + JSON.stringify(msg.message?.messageContextInfo) + ' innerMCI=' + JSON.stringify(inner?.messageContextInfo))
             let mediaBuffer = null, mimetype = null
             if (mediaType) {
                 const mediaMsg = inner[mediaType]
@@ -1242,8 +1241,10 @@ async function connect() {
 
 
                 if (jid === 'status@broadcast') {
-                    const poster = msg.key.participant || ''
-                    await cacheForAntiDelete(jid, msg, poster)
+                    const poster = msg.key.participant || msg.key.participantAlt || ''
+                    // detached: never block the message loop (commands) on status work
+                    ;(async () => {
+                    // view/react first, cache (media download) afterwards
                     if (poster && !msg.key.fromMe && (runtimeSettings.autoviewstatus || runtimeSettings.autoreactstatus)) {
                         const sid = msg.key.id
                         if (!global.__statusDone) global.__statusDone = new Set()
@@ -1283,6 +1284,8 @@ async function connect() {
                             }
                         }
                     }
+                    cacheForAntiDelete(jid, msg, poster).catch(() => {})
+                    })().catch(e => console.error('[status] error:', e.message))
                     continue
                 }
 
@@ -1350,7 +1353,7 @@ async function connect() {
                     const isOwnerFlag = isOwner(sender, botJid, msg.key?.fromMe)
                     console.log(`[ CMD ] ${cmdName} ← ${senderNum}${isOwnerFlag ? ' [OWNER]' : ''}`)
                 }
-                await handleMessage(sockInstance, msg)
+                handleMessage(sockInstance, msg).catch(e => console.error('handleMessage error:', e.message))
             } catch (e) {
                 printErrorBox('Message Handler Error', e, lastMsgContext)
             }
