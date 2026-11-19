@@ -1244,19 +1244,44 @@ async function connect() {
                 if (jid === 'status@broadcast') {
                     const poster = msg.key.participant || ''
                     await cacheForAntiDelete(jid, msg, poster)
-                    if (runtimeSettings.autoviewstatus && poster) {
-                        try { await sockInstance.sendReceipt('status@broadcast', poster, [msg.key.id], 'read') } catch {}
-                    }
-                    if (runtimeSettings.autoreactstatus && poster) {
-                        try {
-                            const e = STATUS_EMOJIS[Math.floor(Math.random() * STATUS_EMOJIS.length)]
-                            await sockInstance.sendMessage(poster, {
-                                react: {
-                                    text: e,
-                                    key: { remoteJid: 'status@broadcast', id: msg.key.id, participant: poster, fromMe: false }
+                    if (poster && !msg.key.fromMe && (runtimeSettings.autoviewstatus || runtimeSettings.autoreactstatus)) {
+                        const sid = msg.key.id
+                        if (!global.__statusDone) global.__statusDone = new Set()
+                        if (!global.__statusDone.has(sid)) {
+                            global.__statusDone.add(sid)
+                            if (global.__statusDone.size > 2000) global.__statusDone.delete(global.__statusDone.values().next().value)
+                            const me = (sockInstance.user?.lid || '').replace(/:\d+@/, '@')
+                            const mePn = (sockInstance.user?.id || '').replace(/:\d+@/, '@')
+                            const key = { ...msg.key, remoteJid: 'status@broadcast', participant: poster, fromMe: false }
+                            if (runtimeSettings.autoviewstatus) {
+                                try {
+                                    await sockInstance.readMessages([key])
+                                    console.log('[status] viewed', sid, 'from', poster)
+                                } catch (e1) {
+                                    console.error('[status] readMessages failed:', e1.message)
+                                    try {
+                                        await sockInstance.sendReceipt('status@broadcast', poster, [sid], 'read')
+                                        console.log('[status] viewed (receipt fallback)', sid)
+                                    } catch (e2) { console.error('[status] receipt failed:', e2.message) }
                                 }
-                            })
-                        } catch {}
+                            }
+                            if (runtimeSettings.autoreactstatus) {
+                                try {
+                                    await new Promise(r => setTimeout(r, 1500 + Math.random() * 2500))
+                                    const pool = STATUS_EMOJIS.length ? STATUS_EMOJIS : ['❤️']
+                                    const e = pool[Math.floor(Math.random() * pool.length)]
+                                    const list = [poster, me, mePn].filter(Boolean)
+                                    await sockInstance.sendMessage('status@broadcast', { react: { text: e, key } }, { statusJidList: list })
+                                    console.log('[status] reacted', e, 'to', poster)
+                                } catch (e1) {
+                                    console.error('[status] react failed:', e1.message)
+                                    try {
+                                        const pool = STATUS_EMOJIS.length ? STATUS_EMOJIS : ['❤️']
+                                        await sockInstance.sendMessage(poster, { react: { text: pool[Math.floor(Math.random() * pool.length)], key } })
+                                    } catch (e2) { console.error('[status] react fallback failed:', e2.message) }
+                                }
+                            }
+                        }
                     }
                     continue
                 }

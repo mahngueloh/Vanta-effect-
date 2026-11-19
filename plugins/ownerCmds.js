@@ -85,7 +85,11 @@ const runtimeSettings = {
     antibug:            false,
 }
 
-const STATUS_EMOJIS = ['❤️','🔥','😍','👏','😂','😮','😢','🙏','🎉','💯']
+const STATUS_EMOJIS = [
+    '❤️','🔥','😍','👏','😂','😮','😢','🙏','🎉','💯','🤩','😎','🥰','💪','👍','🙌','✨','💥','😁','🤣',
+    '😊','🥳','🤝','💖','💙','💚','💜','🧡','💛','🖤','🤍','😇','🤗','😻','🫶','👌','✌️','🫡','🤯','😅',
+    '🥹','😭','💫','🌟','⭐','🎯','🚀','🏆','👑','💎','🍀','🌹','🌈','☀️','😏','🤭','😆','😋','🤙','🫂'
+]
 
 // Sudo list — merged from env SUDO_NUMBERS + data/sudo.json (persisted).
 // Writing through to config.sudoNumbers matters: lib/utils.js isSudoOwner()
@@ -781,8 +785,9 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
         }
         case 'setstatusemoji': {
             if (!q) return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Usage: .setstatusemoji <emoji>`]) }, { quoted: msg })
-            STATUS_EMOJIS.length = 0; STATUS_EMOJIS.push(q)
-            await sock.sendMessage(from, { text: `✅ Status emoji: ${q}` }, { quoted: msg }); break
+            const list = q.split(/[\s,]+/).filter(Boolean)
+            STATUS_EMOJIS.length = 0; STATUS_EMOJIS.push(...list)
+            await sock.sendMessage(from, { text: `✅ Status emojis (${list.length}): ${list.join(' ')}` }, { quoted: msg }); break
         }
         case 'setstickerauthor': {
             if (!q) return sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Usage: .setstickerauthor <name>`]) }, { quoted: msg })
