@@ -1438,6 +1438,108 @@ async function mediaFireLink(mfUrl) {
     throw new Error('Could not find MediaFire download link — file may be private or removed')
 }
 
+// ── Nexray downloaders (tried FIRST for Facebook / Instagram / TikTok / Twitter) ──
+// GET /downloader/<site>?url=<link>. Replies differ per site, so the media is picked out of
+// whatever shape comes back: videos (HD first), photo posts / carousels (all pictures).
+const nexrayLib = require('../lib/nexray')
+const NX_DL = {
+    fb:      ['/downloader/facebook', '/downloader/aio'],
+    ig:      ['/downloader/instagram', '/downloader/v1/instagram', '/downloader/v2/instagram', '/downloader/aio'],
+    tiktok:  ['/downloader/tiktok', '/downloader/aio'],
+    twitter: ['/downloader/twitter', '/downloader/aio'],
+}
+const SKIP_KEYS = /thumb|cover|avatar|profile|icon|poster|preview|logo|favicon|music|audio|sound|wm_|watermark(?!.*no)/i
+function collectMedia(json) {
+    const found = []
+    const isUrl = v => typeof v === 'string' && /^https?:\/\//i.test(v)
+    const typeOf = (url, key, hint) => {
+        const h = String(hint || '').toLowerCase()
+        if (/video|mp4/.test(h)) return 'video'
+        if (/image|photo|jpg|jpeg|png|webp/.test(h)) return 'image'
+        const clean = url.split('?')[0]
+        if (/\.(mp4|mov|webm|m4v|mkv)$/i.test(clean)) return 'video'
+        if (/\.(jpe?g|png|webp|heic)$/i.test(clean)) return 'image'
+        if (/video|mp4|hd|sd|play|nowm|download/i.test(key)) return 'video'
+        if (/image|photo|pic/i.test(key)) return 'image'
+        return /(video|mp4|\/v\/|fbcdn.*\.mp4|googlevideo|tiktokcdn|akamaized)/i.test(url) ? 'video' : null
+    }
+    const walk = (o, key, group, depth) => {
+        if (depth > 6 || o == null) return
+        if (isUrl(o)) {
+            if (SKIP_KEYS.test(key) && !/nowm|no_?watermark/i.test(key)) return
+            const t = typeOf(o, key, '')
+            if (t) found.push({ url: o, type: t, key, group })
+            return
+        }
+        if (Array.isArray(o)) { o.forEach((x, i) => walk(x, key, group || `${key}#${depth}`, depth + 1)); return }
+        if (typeof o === 'object') {
+            // item objects like { url, type: 'video'|'image', quality }
+            const u = o.url || o.download_url || o.src || o.link
+            if (isUrl(u) && (o.type || o.mime || o.extension || o.quality) && !SKIP_KEYS.test(key)) {
+                const t = typeOf(u, key, `${o.type || ''} ${o.mime || ''} ${o.extension || ''}`)
+                if (t) { found.push({ url: u, type: t, key: key + ':' + (o.quality || o.type || ''), group }); return }
+            }
+            for (const [k, v] of Object.entries(o)) walk(v, k, group, depth + 1)
+        }
+    }
+    walk(json?.result ?? json?.data ?? json, 'result', null, 0)
+    const seen = new Set()
+    return found.filter(m => !seen.has(m.url) && seen.add(m.url))
+}
+function chooseMedia(items) {
+    if (!items.length) return []
+    // a carousel / photo post: several entries from one array → send them all
+    const groups = {}
+    for (const m of items) if (m.group) (groups[m.group] ||= []).push(m)
+    const big = Object.values(groups).sort((a, b) => b.length - a.length)[0]
+    // (a list of the SAME video in different qualities is not a carousel)
+    const qualityList = big && big.every(m => m.type === 'video' && /:(hd|sd|low|high|medium|\d{3,4}p?)\b/i.test(m.key))
+    if (big && big.length > 1 && !qualityList) return big.slice(0, 10)
+    const videos = items.filter(m => m.type === 'video')
+    if (videos.length) {
+        const rank = m => (/nowm|no_?watermark|hd|high|1080|720/i.test(m.key) ? 0 : /sd|low|360|240/i.test(m.key) ? 2 : 1)
+        return [videos.sort((a, b) => rank(a) - rank(b))[0]]
+    }
+    return items.filter(m => m.type === 'image').slice(0, 10)
+}
+function nexrayMeta(json) {
+    const r = json?.result || json?.data || {}
+    const title = typeof r.title === 'string' ? r.title : (typeof r.caption === 'string' ? r.caption : (typeof r.desc === 'string' ? r.desc : ''))
+    const a = r.author || r.user || r.owner
+    const author = typeof a === 'string' ? a : (a?.nickname || a?.name || a?.username || a?.unique_id || '')
+    return { title: title.slice(0, 140), author: String(author || '').slice(0, 60) }
+}
+async function nexrayDownload(kind, url) {
+    const errs = []
+    for (const path of NX_DL[kind] || []) {
+        try {
+            const r = await nexrayLib.call(path, { params: { url }, timeout: 60_000 })
+            if (r.type === 'binary') return { items: [{ buf: r.buf, type: /^image/.test(r.ct) ? 'image' : 'video' }], meta: {}, path }
+            if (r.type !== 'json' || r.json?.status === false) { errs.push(`${path}: ${nexrayLib.cleanErr(r.json) || 'HTTP ' + r.status}`); continue }
+            const items = chooseMedia(collectMedia(r.json))
+            if (items.length) return { items, meta: nexrayMeta(r.json), path }
+            errs.push(`${path}: no media in reply`)
+        } catch (e) { errs.push(`${path}: ${e.message}`) }
+    }
+    console.error(`[downloader] Nexray ${kind} failed → ${errs.join(' | ')}`)
+    return null
+}
+// Downloads the chosen items and sends them; true if at least one went out.
+async function sendNexrayItems(sock, from, msg, nx, caption) {
+    let sent = 0
+    for (const it of nx.items) {
+        try {
+            const buf = it.buf || await withRetry(() => toBuffer(it.url, { timeoutMs: 120_000 }), 2)
+            const cap = sent === 0 ? caption : undefined
+            if (it.type === 'image') await sock.sendMessage(from, { image: buf, caption: cap }, { quoted: msg })
+            else await sock.sendMessage(from, { video: buf, mimetype: 'video/mp4', caption: cap }, { quoted: msg })
+            sent++
+        } catch (e) { console.error('[downloader] Nexray media send failed:', e.message) }
+    }
+    return sent > 0
+}
+const firstUrl = (q) => (String(q).match(/https?:\/\/[^\s]+/i) || [q])[0]
+
 function cardSearching(query) {
     return `🔍 Searching *${query}*, wait please...`
 }
@@ -1769,6 +1871,15 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             await fmt.done(sock, msg)
         }
 
+        // ⭐ Nexray first (videos and photo slideshows)
+        try {
+            const nx = await nexrayDownload('tiktok', tiktokUrl) || await nexrayDownload('tiktok', resolvedUrl)
+            if (nx) {
+                const cap = fmt.box('🎵 TIKTOK', [nx.meta.title ? `✦ *${nx.meta.title}*` : null, nx.meta.author ? `👤 ${nx.meta.author}` : null, `_No watermark ✅_`].filter(Boolean))
+                if (await sendNexrayItems(sock, from, msg, nx, cap)) return await fmt.done(sock, msg)
+            }
+        } catch (e) { console.error('[downloader] Nexray tiktok:', e.message) }
+
         // 0️⃣ ruhend-scraper (fast path — maintained npm package)
         try {
             const info = await ruhendTikTok(resolvedUrl)
@@ -1881,6 +1992,13 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             await fmt.done(sock, msg)
         }
 
+        // ⭐ Nexray first — posts, reels, carousels and stories
+        try {
+            const igUrl = firstUrl(q)
+            const nx = await nexrayDownload('ig', igUrl)
+            if (nx && await sendNexrayItems(sock, from, msg, nx, '📸 *Instagram*')) return await fmt.done(sock, msg)
+        } catch (e) { console.error('[downloader] Nexray instagram:', e.message) }
+
         // 0️⃣ ruhend-scraper (fast path)
         try {
             const dlUrl = await ruhendInstagram(q)
@@ -1930,6 +2048,12 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             await fmt.done(sock, msg)
         }
 
+        // ⭐ Nexray first
+        try {
+            const nx = await nexrayDownload('twitter', firstUrl(q))
+            if (nx && await sendNexrayItems(sock, from, msg, nx, '🐦 *Twitter / X*')) return await fmt.done(sock, msg)
+        } catch (e) { console.error('[downloader] Nexray twitter:', e.message) }
+
         // 1️⃣ Dedicated Twitter providers (twitsave → twittervd → ssstwitter)
         try {
             const dlUrl = await twitterDownload(q)
@@ -1960,6 +2084,14 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             return sock.sendMessage(from, { text: fmt.usage('facebook', '<Facebook URL>') }, { quoted: msg })
 
         await sock.sendMessage(from, { text: cardDownloading('Facebook') }, { quoted: msg })
+
+        // ⭐ Nexray first — also tries the link after following facebook.com/share/... redirects
+        try {
+            const fbUrl = firstUrl(q)
+            let nx = await nexrayDownload('fb', fbUrl)
+            if (!nx) { let real = null; try { real = await resolveShortUrl(fbUrl) } catch {} if (real && real !== fbUrl) nx = await nexrayDownload('fb', real) }
+            if (nx && await sendNexrayItems(sock, from, msg, nx, '📘 *Facebook*')) return await fmt.done(sock, msg)
+        } catch (e) { console.error('[downloader] Nexray facebook:', e.message) }
 
         // 0️⃣ ruhend-scraper (fast path)
         try {
