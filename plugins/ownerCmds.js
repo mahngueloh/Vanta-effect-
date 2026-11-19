@@ -85,6 +85,27 @@ const runtimeSettings = {
     antibug:            false,
 }
 
+// ── Persist toggles across restarts (data/settings.json) + env defaults ──
+;(function persistSettings () {
+    const fs = require('fs'), path = require('path')
+    const file = path.join(__dirname, '..', 'data', 'settings.json')
+    const envOn = n => /^(1|true|on|yes)$/i.test(process.env[n] || '')
+    for (const k of ['autoviewstatus', 'autoreactstatus', 'autosavestatus']) {
+        if (envOn(k.toUpperCase())) runtimeSettings[k] = true
+    }
+    try {
+        const saved = JSON.parse(fs.readFileSync(file, 'utf8'))
+        for (const [k, v] of Object.entries(saved)) if (k in runtimeSettings) runtimeSettings[k] = v
+    } catch {}
+    let t = null, last = JSON.stringify(runtimeSettings)
+    setInterval(() => {
+        const now = JSON.stringify(runtimeSettings)
+        if (now === last) return
+        last = now
+        try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, now) } catch {}
+    }, 3000).unref()
+})()
+
 const STATUS_EMOJIS = [
     '❤️','🔥','😍','👏','😂','😮','😢','🙏','🎉','💯','🤩','😎','🥰','💪','👍','🙌','✨','💥','😁','🤣',
     '😊','🥳','🤝','💖','💙','💚','💜','🧡','💛','🖤','🤍','😇','🤗','😻','🫶','👌','✌️','🫡','🤯','😅',
