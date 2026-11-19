@@ -54,6 +54,7 @@ const { downloadMedia, downloadApk } = require('./plugins/downloader')
 const { gameCmds, handleGame }   = require('./plugins/games')
 const { arcadeCmds, handleArcade } = require('./plugins/arcade')
 const { nexAiCmds, handleNexAI } = require('./plugins/nexrayAI')
+const { codeCmds, handleCodeCmd } = require('./plugins/codeShare')
 const { aiReply }               = require('./plugins/aiChat')
 const { selfCodeReply }         = require('./plugins/selfCode')
 const { getStatus: getAiStatus } = require('./lib/aiProviders')
@@ -472,6 +473,10 @@ async function handleMessage(sock, msg) {
         // Un-decorated socket so boards don't get the joke tagline; exempt from the 3 s cooldown above.
         if (arcadeCmds.has(cmd)) {
             return handleArcade(plainSock, from, cmd, args, msg, sender)
+        }
+        // ── Get the bot's code: .zip (whole bot) / .file <command|file|all> ──
+        if (codeCmds.has(cmd)) {
+            return handleCodeCmd(plainSock, from, cmd, args, msg, owner)
         }
         // ── Nexray AIs: .aimodels lists them; each one has its own command ──
         if (nexAiCmds.has(cmd)) {
