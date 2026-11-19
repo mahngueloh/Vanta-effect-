@@ -291,6 +291,36 @@ async function nexrayYtPlay(query) {
     return null
 }
 
+// Nexray Spotify:
+//   link  → GET /downloader/spotify?url=<spotify link>
+//   words → GET /downloader/spotifyplay?q=<song name>
+// result: { title, artist, duration, thumbnail, popularity, album, release_at, url, download_url }
+async function nexraySpotify(input) {
+    const isLink = /spotify\.(com|link)/i.test(input)
+    let url = input
+    if (isLink && !/open\.spotify\.com/.test(input)) { try { url = await resolveShortUrl(input) } catch {} }
+    const ep = isLink ? '/downloader/spotify' : '/downloader/spotifyplay'
+    const params = isLink ? { url } : { q: input }
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const res = await axios.get('https://api.nexray.eu.cc' + ep, {
+                params, timeout: 60_000,
+                headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36', 'Accept': 'application/json, text/plain, */*' },
+            })
+            const r = res.data?.result
+            const dl = r?.download_url || (r?.url && !/open\.spotify\.com/.test(r.url) ? r.url : null)
+            if (!res.data?.status || !dl) return null
+            return { ...r, dl }
+        } catch (e) {
+            const code = e.response?.status
+            console.error(`[downloader] Nexray spotify attempt ${attempt} failed:`, code ? `HTTP ${code}` : e.message)
+            const retryable = !code || [524, 502, 503, 504].includes(code)
+            if (!retryable || attempt === 2) return null
+        }
+    }
+    return null
+}
+
 // Strict audio check (real MP3 / M4A / OGG / WebM signatures only). Unlike
 // validateMedia(), this has no "accept anything" fallback, so an HTML error
 // page from a dead link can never be sent as a song.
@@ -1970,22 +2000,47 @@ async function downloadMedia(sock, from, cmd, q, msg) {
 
     // ── SPOTIFY ───────────────────────────────────────────────────────────────
     if (['spotify', 'sp', 'spdl'].includes(cmd)) {
-        if (!q || !q.includes('spotify'))
-            return sock.sendMessage(from, { text: fmt.usage('spotify', '<Spotify track URL>') }, { quoted: msg })
+        if (!q)
+            return sock.sendMessage(from, { text: fmt.usage('spotify', '<song name or Spotify link>') }, { quoted: msg })
 
         await sock.sendMessage(from, {
             text: fmt.box('🟢 SPOTIFY', [`🔍 Fetching track info...`])
         }, { quoted: msg })
 
         try {
+            // ── Nexray first: song name OR Spotify link → card + MP3 ──────────
+            const nx = await nexraySpotify(q)
+            if (nx) {
+                try {
+                    const lines = [
+                        `🟢 *${nx.title || q}*`,
+                        nx.artist ? `🎤 ${nx.artist}` : null,
+                        nx.album ? `💿 ${nx.album}` : null,
+                        nx.duration ? `⏱️ ${nx.duration}` : null,
+                        nx.release_at ? `📅 ${nx.release_at}` : null,
+                        nx.popularity != null ? `🔥 Popularity ${nx.popularity}` : null,
+                        /open\.spotify\.com/.test(nx.url || '') ? `🔗 ${nx.url}` : null,
+                    ].filter(Boolean).join('\n')
+                    if (nx.thumbnail && /^https?:/.test(nx.thumbnail)) {
+                        try { await sock.sendMessage(from, { image: { url: nx.thumbnail }, caption: lines }, { quoted: msg }) }
+                        catch { await sock.sendMessage(from, { text: lines }, { quoted: msg }) }
+                    } else await sock.sendMessage(from, { text: lines }, { quoted: msg })
+                    const buf = await withRetry(() => toBuffer(nx.dl, { timeoutMs: 90_000 }), 2)
+                    await sendAudioFile(sock, from, buf, `${nx.title || q}${nx.artist ? ' - ' + nx.artist : ''}`, msg)
+                    await fmt.done(sock, msg)
+                    return
+                } catch (e) { console.error('[downloader] Nexray spotify send failed:', e.message) }
+            }
+
             // Spotify's mobile Share button gives a short "spotify.link/..."
             // URL, not the full open.spotify.com/track/... link — and
             // Spotify's oEmbed endpoint doesn't resolve that redirect
             // itself, so it was silently failing on exactly the kind of
             // link most people actually paste in. Resolve it first, the
             // same way TikTok short links already get resolved above.
-            const resolvedUrl = q.includes('open.spotify.com') ? q : await resolveShortUrl(q)
-            const info = await spotifyInfo(resolvedUrl)
+            const isSpLink = /spotify\.(com|link)/i.test(q)
+            const resolvedUrl = !isSpLink || q.includes('open.spotify.com') ? q : await resolveShortUrl(q)
+            const info = isSpLink ? await spotifyInfo(resolvedUrl) : { searchQuery: q, title: q }
             if (!info?.searchQuery) throw new Error('Could not read Spotify track info')
 
             await sock.sendMessage(from, {

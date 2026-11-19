@@ -1,6 +1,29 @@
 const fmt = require('../lib/format')
 
-async function getLyrics(query) {
+// Nexray: GET /search/lyrics?q=<song>  →  { result: { title, artist, thumbnail, url, lyrics } }
+// (lyrics is "-" when it found nothing). Returns text, and sends the cover picture first when it has one.
+async function nexrayLyrics(query, ctx) {
+    try {
+        const axios = require('axios')
+        const res = await axios.get('https://api.nexray.eu.cc/search/lyrics', {
+            params: { q: query }, timeout: 30000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36' },
+        })
+        const r = res.data?.result
+        const lyr = r && typeof r.lyrics === 'string' ? r.lyrics.trim() : ''
+        if (!res.data?.status || !lyr || lyr === '-' || r.error) return null
+        const head = `🎵 *${r.title || query}*${r.artist ? ` — ${r.artist}` : ''}`
+        if (ctx?.sock && r.thumbnail && /^https?:/.test(r.thumbnail)) {
+            try { await ctx.sock.sendMessage(ctx.from, { image: { url: r.thumbnail }, caption: head }, { quoted: ctx.msg }) } catch {}
+        }
+        const body = lyr.length > 6000 ? lyr.slice(0, 6000) + '\n\n_(truncated — too long)_' : lyr
+        return fmt.box('LYRICS', [head, ``, body])
+    } catch (e) { console.log('[lyrics] Nexray failed:', e.response?.status || e.message); return null }
+}
+
+async function getLyrics(query, ctx) {
+    const nx = await nexrayLyrics(query, ctx)
+    if (nx) return nx
     try {
         const parts  = query.split(' ')
         const artist = parts[0]

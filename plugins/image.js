@@ -294,20 +294,10 @@ async function getRemoveBackground(sock, from, msg) {
             }
         }
 
-        // Send two ways: as a sticker (transparency actually visible
-        // in-chat) and as a raw document (full-resolution PNG to save).
-        try {
-            const { Sticker, StickerTypes } = require('wa-sticker-formatter')
-            const sticker = new Sticker(pngBuf, {
-                pack: config.botName, author: config.ownerName,
-                type: StickerTypes.FULL, quality: 90,
-            })
-            await sock.sendMessage(from, { sticker: await sticker.toBuffer() }, { quoted: msg })
-        } catch {}
-
+        // Send the result as a normal picture (PNG keeps the transparent background).
         await sock.sendMessage(from, {
-            document: pngBuf, mimetype: 'image/png', fileName: 'no-background.png',
-            caption: fmt.box('REMOVE BACKGROUND', [`✅ Background removed (${provider})`])
+            image: pngBuf, mimetype: 'image/png',
+            caption: `✅ Background removed`,
         }, { quoted: msg })
         await fmt.react(sock, msg, '✅')
     } catch (e) {

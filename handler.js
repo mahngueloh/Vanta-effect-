@@ -1757,7 +1757,7 @@ async function handleMessage(sock, msg) {
             case 'lyrics': {
                 if (!q) return sock.sendMessage(from, { text: fmt.usage('lyrics', '<artist - song title>') }, { quoted: msg })
                 await fmt.react(sock, msg, '⏳')
-                const result = await getLyrics(q)
+                const result = await getLyrics(q, { sock, from, msg })
                 await sock.sendMessage(from, { text: result }, { quoted: msg })
                 break
             }
