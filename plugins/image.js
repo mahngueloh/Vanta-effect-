@@ -92,32 +92,51 @@ async function getRemini(sock, from, msg) {
 // URL — needed because Savage's bgremover takes an `imageUrl` to fetch
 // rather than accepting a direct file upload, and a WhatsApp media message
 // has no public URL of its own (it's an encrypted blob on WA's own CDN).
-async function uploadPublic(buf, filename) {
-    try { return await uploadToCatbox(buf, filename) }
-    catch (e1) {
-        // fallback host so a catbox outage doesn't break the command
-        const FormDataNode = require('form-data'), axios = require('axios')
-        const form = new FormDataNode()
-        form.append('files[]', buf, filename)
-        const res = await axios.post('https://uguu.se/upload', form, { headers: form.getHeaders(), timeout: 20000 })
-        const url = res.data?.files?.[0]?.url
-        if (!url) throw new Error(`upload failed (catbox: ${e1.message})`)
-        return url
-    }
-}
+// Temporary public hosts, tried in order. Nexray needs a URL it can fetch, so the
+// image is uploaded to one of these first. Each returns a direct image URL.
+const UA = { 'User-Agent': 'Mozilla/5.0 (compatible; VantaBot/3.4)' }
+const UPLOAD_HOSTS = [
+    ['catbox', async (buf, name, axios, FD) => {
+        const f = new FD(); f.append('reqtype', 'fileupload'); f.append('fileToUpload', buf, name)
+        const r = await axios.post('https://catbox.moe/user/api.php', f, { headers: { ...f.getHeaders(), ...UA }, timeout: 25000 })
+        return String(r.data).trim()
+    }],
+    ['litterbox', async (buf, name, axios, FD) => {
+        const f = new FD(); f.append('reqtype', 'fileupload'); f.append('time', '1h'); f.append('fileToUpload', buf, name)
+        const r = await axios.post('https://litterbox.catbox.moe/resources/internals/api.php', f, { headers: { ...f.getHeaders(), ...UA }, timeout: 25000 })
+        return String(r.data).trim()
+    }],
+    ['uguu', async (buf, name, axios, FD) => {
+        const f = new FD(); f.append('files[]', buf, name)
+        const r = await axios.post('https://uguu.se/upload', f, { headers: { ...f.getHeaders(), ...UA }, timeout: 25000 })
+        return r.data?.files?.[0]?.url
+    }],
+    ['tmpfiles', async (buf, name, axios, FD) => {
+        const f = new FD(); f.append('file', buf, name)
+        const r = await axios.post('https://tmpfiles.org/api/v1/upload', f, { headers: { ...f.getHeaders(), ...UA }, timeout: 25000 })
+        const u = r.data?.data?.url
+        return u ? u.replace('tmpfiles.org/', 'tmpfiles.org/dl/').replace('http://', 'https://') : null
+    }],
+    ['0x0', async (buf, name, axios, FD) => {
+        const f = new FD(); f.append('file', buf, name)
+        const r = await axios.post('https://0x0.st', f, { headers: { ...f.getHeaders(), ...UA }, timeout: 25000 })
+        return String(r.data).trim()
+    }],
+]
 
-async function uploadToCatbox(buf, filename) {
-    const FormDataNode = require('form-data')
-    const axios = require('axios')
-    const form = new FormDataNode()
-    form.append('reqtype', 'fileupload')
-    form.append('fileToUpload', buf, filename)
-    const res = await axios.post('https://catbox.moe/user/api.php', form, {
-        headers: form.getHeaders(), timeout: 20000,
-    })
-    const url = String(res.data).trim()
-    if (!url.startsWith('http')) throw new Error(`catbox upload failed: ${url}`)
-    return url
+// Uploads to the first host that works. `skip` lets callers move on to the next host.
+async function uploadPublic(buf, filename, skip = []) {
+    const FD = require('form-data'), axios = require('axios')
+    const errs = []
+    for (const [name, fn] of UPLOAD_HOSTS) {
+        if (skip.includes(name)) continue
+        try {
+            const url = await fn(buf, filename, axios, FD)
+            if (typeof url === 'string' && /^https?:\/\//.test(url)) return { url, host: name }
+            errs.push(`${name}: bad reply`)
+        } catch (e) { errs.push(`${name}: ${e.message}`) }
+    }
+    throw new Error(`upload failed (${errs.join('; ')})`)
 }
 
 // Nexray's removebg — tried first:
@@ -127,23 +146,32 @@ async function uploadToCatbox(buf, filename) {
 async function nexrayRemoveBackground(buf) {
     const axios = require('axios')
     const base = (process.env.NEXRAY_API_BASE || 'https://api.nexray.eu.cc').replace(/\/+$/, '')
-    try {
-        const url = await uploadPublic(buf, 'image.jpg')
-        const params = { url }
-        if (process.env.NEXRAY_API_KEY) params.apikey = process.env.NEXRAY_API_KEY
-        const res = await axios.get(`${base}/tools/removebg`, { params, timeout: 45000, responseType: 'arraybuffer', validateStatus: () => true })
-        const ct = res.headers['content-type'] || ''
-        if (res.status === 200 && ct.startsWith('image/')) return { buf: Buffer.from(res.data) }
-        let data = null
-        try { data = JSON.parse(Buffer.from(res.data).toString('utf8')) } catch {}
-        if (!data) return { error: `unexpected response (HTTP ${res.status}, ${ct || 'no content-type'})` }
-        const out = data.result || data.url || data.output || data.data?.url || data.data?.result || data.image
-        if (typeof out === 'string' && /^https?:/.test(out)) {
-            const img = await axios.get(out, { responseType: 'arraybuffer', timeout: 25000 })
-            return { buf: Buffer.from(img.data) }
-        }
-        return { error: String(data.error || data.message || JSON.stringify(data)).slice(0, 200) }
-    } catch (e) { return { error: e.message } }
+    const tried = [], errors = []
+    // Different upload hosts: if Nexray can't fetch from one (or the host is down), try the next.
+    for (let i = 0; i < UPLOAD_HOSTS.length; i++) {
+        let up
+        try { up = await uploadPublic(buf, 'image.jpg', tried) } catch (e) { errors.push(e.message); break }
+        tried.push(up.host)
+        try {
+            const params = { url: up.url }
+            if (process.env.NEXRAY_API_KEY) params.apikey = process.env.NEXRAY_API_KEY
+            const res = await axios.get(`${base}/tools/removebg`, { params, timeout: 60000, responseType: 'arraybuffer', headers: UA, validateStatus: () => true })
+            const ct = res.headers['content-type'] || ''
+            if (res.status === 200 && ct.startsWith('image/')) { console.log(`[removebg] Nexray OK via ${up.host}`); return { buf: Buffer.from(res.data) } }
+            let data = null
+            try { data = JSON.parse(Buffer.from(res.data).toString('utf8')) } catch {}
+            const out = data && (data.result || data.url || data.output || data.data?.url || data.data?.result || data.image)
+            if (typeof out === 'string' && /^https?:/.test(out)) {
+                const img = await axios.get(out, { responseType: 'arraybuffer', timeout: 30000, headers: UA })
+                console.log(`[removebg] Nexray OK via ${up.host} (result url)`)
+                return { buf: Buffer.from(img.data) }
+            }
+            const why = data ? String(data.error || data.message || JSON.stringify(data)).slice(0, 120) : `HTTP ${res.status} ${ct || 'no content-type'}`
+            errors.push(`${up.host}: ${why}`)
+            console.log(`[removebg] Nexray failed via ${up.host}: ${why}`)
+        } catch (e) { errors.push(`${up.host}: ${e.message}`); console.log(`[removebg] Nexray error via ${up.host}: ${e.message}`) }
+    }
+    return { error: errors.join(' | ').slice(0, 300) }
 }
 
 // Savage API's bgremover — second choice since that's the preferred provider.
@@ -155,7 +183,7 @@ async function savageRemoveBackground(buf) {
     if (!config.savageApiKey) return { error: 'no Savage API key configured' }
     const axios = require('axios')
     try {
-        const imageUrl = await uploadPublic(buf, 'image.jpg')
+        const imageUrl = (await uploadPublic(buf, 'image.jpg')).url
         const res = await axios.get(`${config.savageApiBase}/tools/bgremover`, {
             params: { apikey: config.savageApiKey, imageUrl },
             timeout: 30000,
