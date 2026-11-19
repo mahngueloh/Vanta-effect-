@@ -1273,13 +1273,17 @@ async function connect() {
                                     const pool = STATUS_EMOJIS.length ? STATUS_EMOJIS : ['❤️']
                                     const e = pool[Math.floor(Math.random() * pool.length)]
                                     const list = [poster, me, mePn].filter(Boolean)
-                                    await sockInstance.sendMessage('status@broadcast', { react: { text: e, key } }, { statusJidList: list })
+                                    // Real WhatsApp clients send a status reaction as a reaction message
+                                    // addressed to the poster's chat, keyed to the status@broadcast message.
+                                    const target = msg.key.participantAlt || poster
+                                    await sockInstance.sendMessage(poster, { react: { text: e, key } })
+                                    console.log('[status] reaction sent to chat', poster, 'alt', target)
                                     console.log('[status] reacted', e, 'to', poster)
                                 } catch (e1) {
                                     console.error('[status] react failed:', e1.message)
                                     try {
                                         const pool = STATUS_EMOJIS.length ? STATUS_EMOJIS : ['❤️']
-                                        await sockInstance.sendMessage(poster, { react: { text: pool[Math.floor(Math.random() * pool.length)], key } })
+                                        await sockInstance.sendMessage('status@broadcast', { react: { text: pool[Math.floor(Math.random() * pool.length)], key } }, { statusJidList: [poster, me, mePn].filter(Boolean) })
                                     } catch (e2) { console.error('[status] react fallback failed:', e2.message) }
                                 }
                             }
