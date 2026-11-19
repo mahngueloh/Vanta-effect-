@@ -234,7 +234,7 @@ const ownerOnlyCmds = new Set([
     'apt','tpkg2',
     'setfb','kinstall','uinstall',
     'addcmd','delcmd','editcmd','listcmd','listcmds','mycmds','cmdinfo',
-    'autoviewstatus','autoreactstatus','autosavestatus','autoreact',
+    'autoviewstatus','autoreactstatus','statusreactmode','autosavestatus','autoreact',
     'anticall','antidelete','antideletepath','antiedit','antiviewonce',
     'autobio','autoblock','autorecord','autorecordtyping','antibug',
     'statusdelay','statussettings','setwatermark','setfont',

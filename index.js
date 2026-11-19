@@ -1273,11 +1273,16 @@ async function connect() {
                                     const pool = STATUS_EMOJIS.length ? STATUS_EMOJIS : ['❤️']
                                     const e = pool[Math.floor(Math.random() * pool.length)]
                                     const list = [poster, me, mePn].filter(Boolean)
-                                    // Real WhatsApp clients send a status reaction as a reaction message
-                                    // addressed to the poster's chat, keyed to the status@broadcast message.
-                                    const target = msg.key.participantAlt || poster
-                                    await sockInstance.sendMessage(poster, { react: { text: e, key } })
-                                    console.log('[status] reaction sent to chat', poster, 'alt', target)
+                                    const mode = global.__statusReactMode || 'chat'
+                                    let pn = ''
+                                    try { pn = (await sockInstance.signalRepository?.lidMapping?.getPNForLID?.(poster)) || '' } catch {}
+                                    if (pn && !pn.includes('@')) pn += '@s.whatsapp.net'
+                                    pn = pn.replace(/:\d+@/, '@')
+                                    const ids = [poster, me, mePn].filter(Boolean)
+                                    if (mode === 'chat' || mode === 'both') await sockInstance.sendMessage(poster, { react: { text: e, key } })
+                                    if (mode === 'pn') await sockInstance.sendMessage(pn || poster, { react: { text: e, key } })
+                                    if (mode === 'broadcast' || mode === 'both') await sockInstance.sendMessage('status@broadcast', { react: { text: e, key } }, { statusJidList: ids })
+                                    console.log('[status] reaction sent mode=' + mode, 'poster', poster, 'pn', pn || '-')
                                     console.log('[status] reacted', e, 'to', poster)
                                 } catch (e1) {
                                     console.error('[status] react failed:', e1.message)

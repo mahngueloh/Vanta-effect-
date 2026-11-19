@@ -187,6 +187,13 @@ async function handleOwnerCmd(sock, from, cmd, args, q, msg, sender) {
         }
 
         // ── Auto-status features ──────────────────────────────────────────
+        case 'statusreactmode': {
+            const m = (q || '').toLowerCase().trim()
+            const modes = ['chat', 'broadcast', 'both', 'pn']
+            if (!modes.includes(m)) return sock.sendMessage(from, { text: `Current: *${global.__statusReactMode || 'chat'}*\nUsage: .statusreactmode <chat|broadcast|both|pn>\n• chat – reaction to poster's chat (LID)\n• broadcast – sent via status@broadcast\n• pn – to poster's phone-number chat\n• both – chat + broadcast` }, { quoted: msg })
+            global.__statusReactMode = m
+            await sock.sendMessage(from, { text: `✅ Status reaction mode: *${m}*` }, { quoted: msg }); break
+        }
         case 'autoreactstatus': {
             runtimeSettings.autoreactstatus = resolveToggle(runtimeSettings.autoreactstatus, q)
             await sock.sendMessage(from, {
