@@ -362,6 +362,7 @@ async function handleMessage(sock, msg) {
         // Placed here — before the `if (!body) return` below — because
         // view-once photos/videos are very often sent with no caption at all,
         // and this needs to fire regardless of whether there's text.
+        require('./lib/viewOnceCache').cache(sock, msg)   // keep a copy so .vv works after it is opened
         await maybeRevealViewOnce(sock, msg, from, sender)
 
         if (!body) return
@@ -864,8 +865,12 @@ async function handleMessage(sock, msg) {
                     const deadline = Date.now() + 180_000
                     while (Date.now() < deadline) {
                         await new Promise(r => setTimeout(r, 3000))
-                        const statusRes = await fetch(`${config.pairingSiteUrl}/api/status/${startData.jobId}`, { signal: AbortSignal.timeout(15000) })
-                        const job = await statusRes.json()
+                        let job
+                        try {
+                            const statusRes = await fetch(`${config.pairingSiteUrl}/api/status/${startData.jobId}`, { signal: AbortSignal.timeout(15000) })
+                            job = await statusRes.json()
+                        } catch { continue }   // a network blip must not abort a pairing that is in progress
+                        const done = job.status === 'linked' || job.sessionId || ['connected', 'paired', 'success', 'done', 'completed'].includes(job.status)
 
                         if (job.status === 'code_ready' && job.code && !sentCode) {
                             sentCode = true
@@ -888,18 +893,21 @@ async function handleMessage(sock, msg) {
                             } else {
                                 await sock.sendMessage(from, { text: fmt.box('PAIRING CODE READY', codeLines) }, { quoted: msg })
                             }
-                        } else if (job.status === 'linked' && job.sessionId) {
+                        } else if (done) {
                             return sock.sendMessage(from, {
                                 text: fmt.box('✅ PAIRED SUCCESSFULLY', [
                                     `A session ID has been sent directly to *${number}* on WhatsApp.`,
                                     `Use that as SESSION_ID in that deployment's .env.`,
                                 ])
                             }, { quoted: msg })
-                        } else if (job.status === 'error') {
+                        } else if (job.status === 'error' && !sentCode) {
                             throw new Error(job.error || 'Pairing failed')
                         }
                     }
-                    throw new Error('Timed out waiting for pairing to complete — try again')
+                    // The code was delivered; the pairing site just never reported the final
+                    // state. The user may well have linked — don't show a false failure.
+                    if (sentCode) return
+                    throw new Error('Timed out waiting for a pairing code — try again')
                 } catch (e) {
                     await sock.sendMessage(from, {
                         text: fmt.box('PAIRING FAILED', [`❌ ${e.message}`, `💡 Or visit ${config.pairingSiteUrl} directly.`])
@@ -1402,28 +1410,37 @@ async function handleMessage(sock, msg) {
 
             // ════ VIEW ONCE REVEAL ════════════════════════════════════════════
             case 'vv': case 'reveal': {
-                const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage
+                const ctxInfo = msg.message?.extendedTextMessage?.contextInfo
+                const quoted = ctxInfo?.quotedMessage
+                const cached = ctxInfo?.stanzaId ? require('./lib/viewOnceCache').get(ctxInfo.stanzaId) : null
                 const vMsg   = extractViewOnce(quoted)
-                if (!vMsg) return sock.sendMessage(from, { text: fmt.box('REVEAL', [`❌ Reply to a *view-once* message with *${prefix}vv*`]) }, { quoted: msg })
+                if (!cached && !vMsg) return sock.sendMessage(from, { text: fmt.box('REVEAL', [`❌ Reply to a *view-once* message with *${prefix}vv*`, `_It must have arrived while the bot was online — older ones can't be recovered._`]) }, { quoted: msg })
                 try {
                     await fmt.react(sock, msg, '⏳')
-                    const { downloadMediaMessage } = require('@neoxr/baileys')
-                    const silentLog = { level: 'silent', child: () => silentLog, info: () => {}, debug: () => {}, error: () => {}, warn: () => {}, trace: () => {} }
-                    const buf = await downloadMediaMessage(
-                        { message: vMsg, key: msg.key }, 'buffer', {},
-                        { logger: silentLog, reuploadRequest: sock.updateMediaMessage }
-                    )
-                    const mtype = Object.keys(vMsg)[0]
+                    let buf, mtype, mimetype, ptt
+                    if (cached) {
+                        ({ buf, mtype, mimetype, ptt } = cached)
+                    } else {
+                        const { downloadMediaMessage } = require('@neoxr/baileys')
+                        const silentLog = { level: 'silent', child: () => silentLog, info: () => {}, debug: () => {}, error: () => {}, warn: () => {}, trace: () => {} }
+                        buf = await downloadMediaMessage(
+                            { message: vMsg, key: msg.key }, 'buffer', {},
+                            { logger: silentLog, reuploadRequest: sock.updateMediaMessage }
+                        )
+                        mtype = Object.keys(vMsg)[0]
+                        mimetype = vMsg[mtype]?.mimetype
+                        ptt = !!vMsg[mtype]?.ptt
+                    }
                     if (mtype === 'imageMessage') {
                         await sock.sendMessage(from, { image: buf, caption: `👁️ View-once revealed` }, { quoted: msg })
                     } else if (mtype === 'videoMessage') {
                         await sock.sendMessage(from, { video: buf, caption: `👁️ View-once revealed` }, { quoted: msg })
                     } else if (mtype === 'audioMessage') {
-                        await sock.sendMessage(from, { audio: buf, mimetype: vMsg.audioMessage?.mimetype || 'audio/ogg; codecs=opus', ptt: !!vMsg.audioMessage?.ptt }, { quoted: msg })
+                        await sock.sendMessage(from, { audio: buf, mimetype: mimetype || 'audio/ogg; codecs=opus', ptt: !!ptt }, { quoted: msg })
                     }
                     await fmt.react(sock, msg, '✅')
                 } catch (e) {
-                    await sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ ${e.message}`]) }, { quoted: msg })
+                    await sock.sendMessage(from, { text: fmt.box('ERROR', [`❌ Couldn't retrieve it — it was probably opened before the bot saw it (${e.message})`]) }, { quoted: msg })
                 }
                 break
             }
