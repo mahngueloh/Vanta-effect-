@@ -523,11 +523,11 @@ async function handleMessage(sock, msg) {
                 break
 
             // ════ PING (bot latency) — .ping is normal; .ping2 is the Linux/Kali host ping ═
-            case 'alive': case 'online': case 'botstatus': case 'status': case 'runtime': case 'botuptime': case 'ping': case 'botping': case 'pong': {
+            case 'alive': case 'online': {
                 await require('./plugins/onlineCard').sendOnlineCard(sock, from, msg, { config, startTime })
                 break
             }
-            case '__oldping': {
+            case 'ping': case 'botping': case 'pong': {
                 const start = Date.now()
                 await sock.sendMessage(from, { text: fmt.box('PING', ['🏓 Testing response time...']) }, { quoted: msg })
                 const ms = Date.now() - start
@@ -564,7 +564,7 @@ async function handleMessage(sock, msg) {
                 break
 
             // ════ RUNTIME (bot uptime) — use .runtime for bot uptime, .uptime for system ═
-            case '__oldruntime': {
+            case 'runtime': case 'botuptime': {
                 const up  = Date.now() - startTime
                 const d   = Math.floor(up / 86400000)
                 const h   = Math.floor((up % 86400000) / 3600000)
@@ -581,7 +581,7 @@ async function handleMessage(sock, msg) {
             }
 
             // ════ BOT STATUS ══════════════════════════════════════════════════
-            case '__oldstatus': {
+            case 'botstatus': case 'status': {
                 const os = require('os')
                 const t  = os.totalmem(), u = t - os.freemem()
                 const pct = Math.round((u / t) * 100)

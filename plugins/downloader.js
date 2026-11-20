@@ -321,6 +321,40 @@ async function nexraySpotify(input) {
     return null
 }
 
+
+// ── Extra Nexray audio sources for .play (tried in order after the main path) ──
+// Each tries one endpoint; returns an audio Buffer or null. All errors are logged.
+async function nexrayExtraAudio(yt, q) {
+    const nx = require('../lib/nexray')
+    const tries = [
+        ['v1/ytmp3',   () => nx.call('/downloader/v1/ytmp3', { params: { url: yt.url }, timeout: 60_000 })],
+        ['savetube',   () => nx.call('/downloader/savetube', { params: { url: yt.url, quality: 'mp3' }, timeout: 60_000 })],
+        ['spotifyplay',() => nx.call('/downloader/spotifyplay', { params: { q: (yt.title && !/^https?:/.test(yt.title) ? yt.title : q) }, timeout: 75_000 })],
+        ['ytplay',     () => nx.call('/downloader/ytplay', { params: { q: (yt.title && !/^https?:/.test(yt.title) ? yt.title : q) }, timeout: 75_000 })],
+        ['ytmp4-360',  () => nx.call('/downloader/ytmp4', { params: { url: yt.url, resolusi: '360' }, timeout: 60_000 }), true],
+    ]
+    for (const [name, run, isVideo] of tries) {
+        try {
+            const r = await run()
+            let buf = null
+            if (r.type === 'binary') buf = r.buf
+            else if (r.type === 'json' && r.json?.status !== false) {
+                const res = r.json?.result || {}
+                const link = res.download_url || res.downloadUrl || res.url || res.link || res.audio || nx.pickUrl(r.json)
+                if (link && !/open\.spotify\.com/.test(link)) buf = await withRetry(() => toBuffer(link, { label: 'Nexray ' + name, timeoutMs: 120_000 }), 2)
+            }
+            if (!buf) { console.error(`[downloader] play fallback ${name}: no link`); continue }
+            if (isVideo || !looksLikeAudio(buf)) {
+                if (validateMedia(buf, 'video') && !looksLikeAudio(buf)) buf = await convertVideoBufferToAudio(buf)
+                else if (!looksLikeAudio(buf)) { console.error(`[downloader] play fallback ${name}: not audio`); continue }
+            }
+            console.log(`[downloader] play fallback ${name} OK`)
+            return buf
+        } catch (e) { console.error(`[downloader] play fallback ${name} failed:`, e.message) }
+    }
+    return null
+}
+
 // Strict audio check (real MP3 / M4A / OGG / WebM signatures only). Unlike
 // validateMedia(), this has no "accept anything" fallback, so an HTML error
 // page from a dead link can never be sent as a song.
@@ -1647,6 +1681,16 @@ async function downloadMedia(sock, from, cmd, q, msg) {
                 }
             }
         } catch (e) { console.error('[downloader] Nexray ytmp3 fallback failed:', e.message) }
+
+        // ── FALLBACK 1b: other Nexray sources (v1 ytmp3, savetube, Spotify, ytplay, mp4) ──
+        try {
+            const xb = await nexrayExtraAudio(yt, q)
+            if (xb) {
+                await sendAudioFile(sock, from, xb, yt.title && !/^https?:/.test(yt.title) ? yt.title : q, msg)
+                await fmt.done(sock, msg)
+                return
+            }
+        } catch (e) { console.error('[downloader] nexray extra audio failed:', e.message) }
 
         // ── FALLBACK 2: JioSaavn (best for music — real HQ MP3 links) ─────
         const saavn = await saavnSearch(q)

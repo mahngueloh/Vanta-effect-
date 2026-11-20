@@ -12,26 +12,27 @@ function fmtUp(ms) {
 }
 
 function buildHtml({ botName, upMs, latency, cores, node, mode, ramUsed, ramTotal, time, tz }) {
+    const ramUsedG = (ramUsed / 1024).toFixed(1), ramTotalG = (ramTotal / 1024).toFixed(1)
     const u = fmtUp(upMs)
     return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0a1224;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#e8eefc;padding:10px}
 .card{background:linear-gradient(160deg,#0f1c3a,#0a1428);border:1px solid #1f3a6b;border-radius:18px;padding:16px}
 .top{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1f3a6b;padding-bottom:12px;margin-bottom:14px}
-.name{font-size:19px;font-weight:700}
+.name{font-size:16px;font-weight:700}
 .pill{font-size:11px;font-weight:700;letter-spacing:.5px;color:#4da3ff;background:#0d2a52;border:1px solid #1d4f94;border-radius:20px;padding:5px 10px;display:flex;align-items:center;gap:6px}
 .dot{width:8px;height:8px;border-radius:50%;background:#4da3ff;animation:p 1.4s infinite}
 @keyframes p{50%{opacity:.25}}
 .up{text-align:center;background:#0c1f40;border:1px solid #1d4f94;border-radius:14px;padding:14px;margin-bottom:12px}
 .lbl{font-size:11px;letter-spacing:1.2px;color:#4da3ff;font-weight:700}
-.big{font-size:30px;font-weight:800;margin:6px 0;font-variant-numeric:tabular-nums}
+.big{font-size:24px;font-weight:800;margin:6px 0;font-variant-numeric:tabular-nums}
 .sub{font-size:12px;color:#8aa0c8}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
-.box{background:#0c1a33;border:1px solid #1a3563;border-radius:12px;padding:11px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:10px}
+.box{min-width:0;background:#0c1a33;border:1px solid #1a3563;border-radius:12px;padding:11px}
 .box .lbl{color:#7d92ba;font-size:10px}
-.val{font-size:19px;font-weight:700;margin-top:5px}
+.val{font-size:16px;word-break:break-word;font-weight:700;margin-top:5px}
 .ok{background:#0d2a1f;border:1px solid #1b6b49;color:#4ade80;border-radius:12px;padding:11px;font-size:14px;margin-bottom:12px}
-.foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #1f3a6b;padding-top:10px;font-size:11px;color:#7d92ba}
+.foot{display:flex;flex-direction:column;gap:4px;align-items:flex-start;border-top:1px solid #1f3a6b;padding-top:10px;font-size:11px;color:#7d92ba}
 .pw{color:#ffd166;font-weight:700;font-size:12px}
 </style></head><body><div class="card">
 <div class="top"><div class="name">🤖 ${esc(botName)}</div><div class="pill"><span class="dot"></span>SYSTEM ONLINE</div></div>
@@ -40,7 +41,7 @@ body{background:#0a1224;font-family:-apple-system,Segoe UI,Roboto,sans-serif;col
 <div class="box"><div class="lbl">LATENCY SPEED</div><div class="val">${latency} ms</div></div>
 <div class="box"><div class="lbl">CPU CORES</div><div class="val">${cores} Core</div></div>
 <div class="box"><div class="lbl">RUNTIME ENGINE</div><div class="val">Node ${esc(node)}</div></div>
-<div class="box"><div class="lbl">MODE · RAM</div><div class="val">${esc(mode)} · ${ramUsed}/${ramTotal} MB</div></div>
+<div class="box"><div class="lbl">MODE</div><div class="val">${esc(mode)}</div><div class="sub">RAM ${ramUsedG}/${ramTotalG} GB</div></div>
 </div>
 <div class="ok">🟢 The service is active and ready for commands</div>
 <div class="foot"><span>updated just now</span><span class="pw">⚡ Powered by Zack — your friendly bot developer</span></div>
