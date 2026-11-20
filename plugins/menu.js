@@ -167,7 +167,7 @@ function menuData() {
         custom: ['addcmd', 'editcmd', 'delcmd', 'listcmd', 'cmdinfo'],
         kali: ['kali <tool> [args]', 'kalicmds', 'ping2'],
         general: [
-            'menu', 'help', 'ping', 'pong', 'runtime', 'uptime', 'botstatus', 'botping', 'botdate', 'botuptime',
+            'menu', 'help', 'alive', 'online', 'ping', 'pong', 'runtime', 'uptime', 'botstatus', 'botping', 'botdate', 'botuptime',
             'owner', 'contact', 'pair', 'time', 'userid', 'myid', 'feedback', 'report', 'about', 'bot', 'online', 'status',
             'whoami', 'summary', 'listcmds', 'mycmds', 'quote', 'repair', 'buttons',
         ],

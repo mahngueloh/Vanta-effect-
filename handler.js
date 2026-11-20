@@ -234,7 +234,7 @@ const ownerOnlyCmds = new Set([
     'apt','tpkg2',
     'setfb','kinstall','uinstall',
     'addcmd','delcmd','editcmd','listcmd','listcmds','mycmds','cmdinfo',
-    'autoviewstatus','autoreactstatus','statusreactmode','autosavestatus','autoreact',
+    'autoviewstatus','autoreactstatus','autosavestatus','autoreact',
     'anticall','antidelete','antideletepath','antiedit','antiviewonce',
     'autobio','autoblock','autorecord','autorecordtyping','antibug',
     'statusdelay','statussettings','setwatermark','setfont',
@@ -244,7 +244,7 @@ const ownerOnlyCmds = new Set([
     'resetsetting','setanticallmsg','showanticallmsg','delanticallmsg','testanticallmsg',
     'addcountrycode','delcountrycode','listcountrycode',
     'aza','resetaza','setaza','ppprivacy','gcaddprivacy','dlvo','update',
-    'allgroups','mode','chatbot','botstatus','status','runtime','bancheck',
+    'allgroups','mode','chatbot','alive','online','botstatus','status','runtime','bancheck',
     'fbpageid','fbpage','fbaccesstoken','fbtoken',
     'chatteach','chatunteach','chatfact','chatforget','chatlist','chatpersona','chatname','chatreset','chatstatus','hftoken','hfmodel',
     'broadcast',
@@ -523,7 +523,11 @@ async function handleMessage(sock, msg) {
                 break
 
             // ════ PING (bot latency) — .ping is normal; .ping2 is the Linux/Kali host ping ═
-            case 'ping': case 'botping': case 'pong': {
+            case 'alive': case 'online': case 'botstatus': case 'status': case 'runtime': case 'botuptime': case 'ping': case 'botping': case 'pong': {
+                await require('./plugins/onlineCard').sendOnlineCard(sock, from, msg, { config, startTime })
+                break
+            }
+            case '__oldping': {
                 const start = Date.now()
                 await sock.sendMessage(from, { text: fmt.box('PING', ['🏓 Testing response time...']) }, { quoted: msg })
                 const ms = Date.now() - start
@@ -560,7 +564,7 @@ async function handleMessage(sock, msg) {
                 break
 
             // ════ RUNTIME (bot uptime) — use .runtime for bot uptime, .uptime for system ═
-            case 'runtime': case 'botuptime': {
+            case '__oldruntime': {
                 const up  = Date.now() - startTime
                 const d   = Math.floor(up / 86400000)
                 const h   = Math.floor((up % 86400000) / 3600000)
@@ -577,7 +581,7 @@ async function handleMessage(sock, msg) {
             }
 
             // ════ BOT STATUS ══════════════════════════════════════════════════
-            case 'botstatus': case 'status': {
+            case '__oldstatus': {
                 const os = require('os')
                 const t  = os.totalmem(), u = t - os.freemem()
                 const pct = Math.round((u / t) * 100)
