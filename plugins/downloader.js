@@ -1927,7 +1927,16 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             }, { quoted: msg })
             await fmt.done(sock, msg)
         } catch (e) {
-            await sock.sendMessage(from, { text: cardError(e.message || 'Download failed', `Try again in a moment, or a shorter video: ${p}ytmp4 <URL>`) }, { quoted: msg })
+            // Link form: when the bot itself can't fetch the file, give direct browser download pages
+            // that work from the user's own phone (the video path above is unchanged).
+            const vid = (url.match(/[?&]v=([\w-]{11})/) || [])[1]
+            const links = vid ? [
+                `🔗 *Download in your browser:*`,
+                `• https://ssyoutube.com/watch?v=${vid}`,
+                `• https://cobalt.tools/?u=${encodeURIComponent('https://www.youtube.com/watch?v=' + vid)}`,
+                `• https://y2mate.nu/en/youtube/${vid}`,
+            ].join('\n') : ''
+            await sock.sendMessage(from, { text: cardError(e.message || 'Download failed', `Try again in a moment: ${p}ytmp4 <URL>`) + (links ? `\n\n${links}` : '') }, { quoted: msg })
         }
         return
     }
