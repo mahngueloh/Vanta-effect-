@@ -454,6 +454,39 @@ async function nexrayYtMp4(videoUrl, resolusi = '1080') {
     return null
 }
 
+
+// ── Nexray video ladder: several endpoints × lower resolutions. 1080p often times
+// out or gets 403 on the file link; 720/360 are far more reliable and plenty for WhatsApp.
+async function nexrayVideoLadder(videoUrl, title) {
+    const nx = require('../lib/nexray')
+    const tries = [
+        ['v1/ytmp4 720',  '/downloader/v1/ytmp4', { url: videoUrl, resolusi: '720' }],
+        ['ytmp4 720',     '/downloader/ytmp4',    { url: videoUrl, resolusi: '720' }],
+        ['savetube 720',  '/downloader/savetube', { url: videoUrl, quality: '720' }],
+        ['v1/ytmp4 360',  '/downloader/v1/ytmp4', { url: videoUrl, resolusi: '360' }],
+        ['ytmp4 360',     '/downloader/ytmp4',    { url: videoUrl, resolusi: '360' }],
+        ['savetube 360',  '/downloader/savetube', { url: videoUrl, quality: '360' }],
+    ]
+    if (title && !/^https?:/.test(title)) tries.push(['ytplayvid', '/downloader/ytplayvid', { q: title }])
+    for (const [name, path, params] of tries) {
+        try {
+            const r = await nx.call(path, { params, timeout: 75_000 })
+            let buf = null
+            if (r.type === 'binary') buf = r.buf
+            else if (r.type === 'json' && r.json?.status !== false) {
+                const res = r.json?.result || {}
+                const link = res.url || res.download_url || res.downloadUrl || res.link || res.video || nx.pickUrl(r.json)
+                if (link) buf = await withRetry(() => toBuffer(link, { label: 'Nexray ' + name, timeoutMs: 120_000 }), 2)
+            }
+            if (!buf) { console.error(`[downloader] video ladder ${name}: no link`); continue }
+            if (!validateMedia(buf, 'video')) { console.error(`[downloader] video ladder ${name}: not a valid video`); continue }
+            console.log(`[downloader] video ladder ${name} OK (${(buf.length / 1048576).toFixed(1)} MB)`)
+            return { buf, quality: name.split(' ')[1] ? name.split(' ')[1] + 'p' : '' }
+        } catch (e) { console.error(`[downloader] video ladder ${name} failed:`, e.message) }
+    }
+    return null
+}
+
 // ── Video → audio conversion ────────────────────────────────────────────────
 // The .play pipeline deliberately reuses the WORKING Nexray v1/ytmp4 video
 // endpoint, then converts the downloaded MP4 to a real MP3 locally with
@@ -1818,6 +1851,8 @@ async function downloadMedia(sock, from, cmd, q, msg) {
         if (!q) return sock.sendMessage(from, { text: fmt.usage(cmd, '<YouTube URL or search>') }, { quoted: msg })
 
         let url = q.trim(), title = q, duration = ''
+        // youtu.be/ID?si=…, shorts, m.youtube… → canonical watch URL (extra params break some sources)
+        { const mId = url.match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([\w-]{11})/); if (/^https?:/i.test(url) && mId) url = `https://www.youtube.com/watch?v=${mId[1]}` }
 
         if (!url.startsWith('http')) {
             await sock.sendMessage(from, { text: cardSearching(q) }, { quoted: msg })
@@ -1840,17 +1875,9 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             let buf = null
             let vidQuality = ''
 
-            // 0️⃣ Nexray v1 ytmp4 (fast path — hosted extraction, direct MP4 link)
-            const nx = await nexrayYtMp4(url, '1080')
-            if (nx?.url) {
-                buf = await withRetry(() => toBuffer(nx.url, { timeoutMs: 120_000 }), 2)
-                if (buf && !validateMedia(buf, 'video')) {
-                    console.error('[downloader] Nexray ytmp4 file failed video validation, trying next source')
-                    buf = null
-                } else {
-                    vidQuality = nx.quality
-                }
-            }
+            // 0️⃣ Nexray ladder (several endpoints, 720p → 360p)
+            const lad = await nexrayVideoLadder(url, title)
+            if (lad) { buf = lad.buf; vidQuality = lad.quality }
 
             // 1️⃣ Savage API (fast path — hosted extraction, not this host's IP)
             const sd = buf ? null : await savageYtVideo(url)
@@ -1875,7 +1902,7 @@ async function downloadMedia(sock, from, cmd, q, msg) {
                     buf = await withRetry(() => toBuffer(dlUrl, { timeoutMs: 120_000 }), 2)
                 }
             }
-            if (!buf) throw new Error('No video data received')
+            if (!buf) throw new Error('Could not download this video from any source right now')
             await sock.sendMessage(from, {
                 video:   buf,
                 mimetype: 'video/mp4',
@@ -1883,7 +1910,7 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             }, { quoted: msg })
             await fmt.done(sock, msg)
         } catch (e) {
-            await sock.sendMessage(from, { text: cardError(e.message, `Paste the YouTube link directly: ${p}ytmp4 <URL>`) }, { quoted: msg })
+            await sock.sendMessage(from, { text: cardError(e.message || 'Download failed', `Try again in a moment, or a shorter video: ${p}ytmp4 <URL>`) }, { quoted: msg })
         }
         return
     }
