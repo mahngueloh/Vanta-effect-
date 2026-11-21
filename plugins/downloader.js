@@ -457,32 +457,45 @@ async function nexrayYtMp4(videoUrl, resolusi = '1080') {
 
 // ── Nexray video ladder: several endpoints × lower resolutions. 1080p often times
 // out or gets 403 on the file link; 720/360 are far more reliable and plenty for WhatsApp.
-async function nexrayVideoLadder(videoUrl, title) {
+async function nexrayVideoLadder(videoUrl, title, reasons = []) {
     const nx = require('../lib/nexray')
-    const tries = [
-        ['v1/ytmp4 720',  '/downloader/v1/ytmp4', { url: videoUrl, resolusi: '720' }],
-        ['ytmp4 720',     '/downloader/ytmp4',    { url: videoUrl, resolusi: '720' }],
-        ['savetube 720',  '/downloader/savetube', { url: videoUrl, quality: '720' }],
-        ['v1/ytmp4 360',  '/downloader/v1/ytmp4', { url: videoUrl, resolusi: '360' }],
-        ['ytmp4 360',     '/downloader/ytmp4',    { url: videoUrl, resolusi: '360' }],
-        ['savetube 360',  '/downloader/savetube', { url: videoUrl, quality: '360' }],
-    ]
-    if (title && !/^https?:/.test(title)) tries.push(['ytplayvid', '/downloader/ytplayvid', { q: title }])
-    for (const [name, path, params] of tries) {
+    const one = async (name, path, params) => {
         try {
-            const r = await nx.call(path, { params, timeout: 75_000 })
+            const r = await nx.call(path, { params, timeout: 70_000 })
             let buf = null
             if (r.type === 'binary') buf = r.buf
-            else if (r.type === 'json' && r.json?.status !== false) {
+            else if (r.type === 'json') {
+                if (r.json?.status === false || r.status >= 400) throw new Error(`API ${r.status}: ${nx.cleanErr(r.json) || 'error'}`)
                 const res = r.json?.result || {}
                 const link = res.url || res.download_url || res.downloadUrl || res.link || res.video || nx.pickUrl(r.json)
-                if (link) buf = await withRetry(() => toBuffer(link, { label: 'Nexray ' + name, timeoutMs: 120_000 }), 2)
-            }
-            if (!buf) { console.error(`[downloader] video ladder ${name}: no link`); continue }
-            if (!validateMedia(buf, 'video')) { console.error(`[downloader] video ladder ${name}: not a valid video`); continue }
+                if (!link) throw new Error('no link in reply')
+                // Some links 403 for the default client — retry with plain headers, then browser-like ones.
+                const hdrs = [{}, { 'User-Agent': 'Mozilla/5.0', Referer: 'https://www.youtube.com/' }, { 'User-Agent': 'curl/8.4.0', Accept: '*/*' }]
+                let lastErr
+                for (const h of hdrs) {
+                    try { buf = await toBuffer(link, { headers: h, label: 'Nexray ' + name, timeoutMs: 120_000 }); break } catch (e) { lastErr = e }
+                }
+                if (!buf) throw lastErr || new Error('file download failed')
+            } else throw new Error(`HTTP ${r.status} ${r.raw || ''}`.slice(0, 80))
+            if (!buf || !validateMedia(buf, 'video')) throw new Error('not a valid video file')
             console.log(`[downloader] video ladder ${name} OK (${(buf.length / 1048576).toFixed(1)} MB)`)
-            return { buf, quality: name.split(' ')[1] ? name.split(' ')[1] + 'p' : '' }
-        } catch (e) { console.error(`[downloader] video ladder ${name} failed:`, e.message) }
+            return { buf, quality: (name.match(/(\d+)/) || [])[1] ? name.match(/(\d+)/)[1] + 'p' : '' }
+        } catch (e) {
+            const why = String(e.message || e).replace(/\s+/g, ' ').slice(0, 90)
+            console.error(`[downloader] video ladder ${name} failed:`, why)
+            reasons.push(`${name}: ${why}`)
+            throw e
+        }
+    }
+    // Round 1: three endpoints at 720p IN PARALLEL — first good file wins.
+    // Round 2: same at 360p (smaller, faster). Round 3: search by title.
+    const rounds = [
+        [['savetube 720', '/downloader/savetube', { url: videoUrl, quality: '720' }], ['v1/ytmp4 720', '/downloader/v1/ytmp4', { url: videoUrl, resolusi: '720' }], ['ytmp4 720', '/downloader/ytmp4', { url: videoUrl, resolusi: '720' }]],
+        [['savetube 360', '/downloader/savetube', { url: videoUrl, quality: '360' }], ['v1/ytmp4 360', '/downloader/v1/ytmp4', { url: videoUrl, resolusi: '360' }], ['ytmp4 360', '/downloader/ytmp4', { url: videoUrl, resolusi: '360' }]],
+    ]
+    if (title && !/^https?:/.test(title)) rounds.push([['ytplayvid', '/downloader/ytplayvid', { q: title }]])
+    for (const round of rounds) {
+        try { return await Promise.any(round.map(([n, pth, prm]) => one(n, pth, prm))) } catch {}
     }
     return null
 }
@@ -1876,7 +1889,9 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             let vidQuality = ''
 
             // 0️⃣ Nexray ladder (several endpoints, 720p → 360p)
-            const lad = await nexrayVideoLadder(url, title)
+            const why = []
+            global.__ytWhy = why
+            const lad = await nexrayVideoLadder(url, title, why)
             if (lad) { buf = lad.buf; vidQuality = lad.quality }
 
             // 1️⃣ Savage API (fast path — hosted extraction, not this host's IP)
@@ -1894,15 +1909,17 @@ async function downloadMedia(sock, from, cmd, q, msg) {
             }
 
             if (!buf) {
-                const ytdlp = await hasYtdlp()
-                if (ytdlp) {
-                    buf = await ytdlpDownload(url, false)
-                } else {
-                    const dlUrl = await cobaltFetch(url, false)
-                    buf = await withRetry(() => toBuffer(dlUrl, { timeoutMs: 120_000 }), 2)
-                }
+                try {
+                    const ytdlp = await hasYtdlp()
+                    if (ytdlp) {
+                        buf = await ytdlpDownload(url, false)
+                    } else {
+                        const dlUrl = await cobaltFetch(url, false)
+                        buf = await withRetry(() => toBuffer(dlUrl, { timeoutMs: 120_000 }), 2)
+                    }
+                } catch (e) { (global.__ytWhy = global.__ytWhy || []).push('yt-dlp/cobalt: ' + (e.message || 'failed')) }
             }
-            if (!buf) throw new Error('Could not download this video from any source right now')
+            if (!buf) throw new Error('Could not download this video right now' + ((global.__ytWhy || []).length ? '\n_' + [...new Set(global.__ytWhy.map(x => x.slice(0, 70)))].slice(0, 4).join('\n') + '_' : ''))
             await sock.sendMessage(from, {
                 video:   buf,
                 mimetype: 'video/mp4',
