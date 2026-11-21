@@ -153,7 +153,7 @@ function menuData() {
         ],
         search: ['lyrics', 'imdb', 'yts', 'gsmarena', 'moviesearch', 'toprated', 'moviedetails'],
         fun: ['fact', 'facts', 'joke', 'jokes', 'meme', 'memes', 'quotes', 'trivia', 'truth', 'dare', 'tod', 'truthordare', 'truthdetector', 'emojimix'],
-        games: ['arcade', 'flappy', 'racer', 'snake', 'dino', 'games', 'ttt', 'c4', 'hm', 'guess', 'memory', 'mines', '2048', 'slots', 'rps', 'quiz', 'ans', 'lights', 'slide'],
+        games: ['arcade', 'flappy', 'racer', 'snake', 'tetris', 'dino', 'games', 'ttt', 'c4', 'hm', 'guess', 'memory', 'mines', '2048', 'slots', 'rps', 'quiz', 'ans', 'lights', 'slide'],
         religion: ['bible', 'quran'],
         sports: [
             'sports', 'epl', 'eplmatches', 'eplstandings', 'eplscorers', 'eplupcoming',

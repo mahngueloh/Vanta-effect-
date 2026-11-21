@@ -16,6 +16,7 @@ const GAMES = [
     { id: 'flappy', file: 'flappy.html', title: 'Flappy Bird',   emoji: '🐦', cmds: ['flappy', 'flappybird'],        how: 'Tap to flap, dodge the pipes' },
     { id: 'racer',  file: 'racer.html',  title: 'Turbo Highway', emoji: '🏎️', cmds: ['racer', 'turbo', 'highway'],   how: 'Swipe or LEFT/RIGHT, hold BOOST' },
     { id: 'snake',  file: 'snake.html',  title: 'Snake',         emoji: '🐍', cmds: ['snake'],                       how: 'Swipe or tap the arrows' },
+    { id: 'tetris', file: 'tetris.html', title: 'Tetris',       emoji: '🧱', cmds: ['tetris', 'blocks'],            how: 'Move, rotate and drop the blocks to clear lines' },
     { id: 'dino',   file: 'dino.html',   title: 'Dino Run',      emoji: '🦖', cmds: ['dino', 'dinorun'],             how: 'Tap to jump over cacti' },
 ]
 const byCmd = new Map()
