@@ -72,7 +72,10 @@ async function sendButtonsDemo(sock, from, sender, msg, args) {
 // ── Reply-button actions (function declarations are hoisted, so these are
 // usable inside sendButtonsDemo above via replyBtn(), regardless of order) ──
 async function pingAction(sock, from) {
-    return sock.sendMessage(from, { text: fmt.box('PONG', ['\u{1F3D3} Buttons are *alive*']) })
+    const t0 = Date.now()
+    await sock.sendMessage(from, { text: fmt.box('PING', ['🏓 Testing response time...']) })
+    const ms = Date.now() - t0
+    return sock.sendMessage(from, { text: fmt.box('PONG', ['✅ Bot is *online* and responding', '', `⚡ *Response time:* ${ms}ms`]) })
 }
 async function menuAction(sock, from, sender, msg) {
     return sendMenu(sock, from, sender, msg)

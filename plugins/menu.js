@@ -14,7 +14,10 @@ const { mentionName } = require('../lib/utils')
 // reverse import would be circular). replyBtn() safely re-registers the same
 // id/label pair; Map.set is idempotent, so this is harmless either way.
 async function pingAction(sock, from) {
-    return sock.sendMessage(from, { text: fmt.box('PONG', ['🏓 Buttons are *alive*']) })
+    const t0 = Date.now()
+    await sock.sendMessage(from, { text: fmt.box('PING', ['🏓 Testing response time...']) })
+    const ms = Date.now() - t0
+    return sock.sendMessage(from, { text: fmt.box('PONG', ['✅ Bot is *online* and responding', '', `⚡ *Response time:* ${ms}ms`]) })
 }
 
 // VANTA-style read-more padding.
@@ -147,7 +150,7 @@ function menuData() {
             'repo', 'source', 'update', 'updatecode', 'agentstatus', 'agentrefresh',
         ],
         tools: [
-            'sticker', 'toimage', 'toviewonce', 'remini', 'enhance', 'removebc', 'wallpaper', 'vv', 'vv2', 'reveal', 'save',
+            'sticker', 'toimage', 'toviewonce', 'remini', 'enhance', 'removebc', 'wallpaper', 'images', 'vv', 'vv2', 'reveal', 'save',
             'qrcode', 'tinyurl', 'shorten', 'shorturl', 'calculate', 'genpass', 'fancy', 'fliptext', 'weather',
             'define', 'getpp', 'getabout', 'device', 'dict', 'meaning', 'calc', 'math', 'say', 'react', 'pfp',
         ],

@@ -54,6 +54,7 @@ const { downloadMedia, downloadApk } = require('./plugins/downloader')
 const { gameCmds, handleGame }   = require('./plugins/games')
 const { arcadeCmds, handleArcade } = require('./plugins/arcade')
 const { nexAiCmds, handleNexAI } = require('./plugins/nexrayAI')
+const { imageCmds, handleImages } = require('./plugins/imageSearch')
 const { codeCmds, handleCodeCmd } = require('./plugins/codeShare')
 const { aiReply }               = require('./plugins/aiChat')
 const { selfCodeReply }         = require('./plugins/selfCode')
@@ -244,7 +245,7 @@ const ownerOnlyCmds = new Set([
     'resetsetting','setanticallmsg','showanticallmsg','delanticallmsg','testanticallmsg',
     'addcountrycode','delcountrycode','listcountrycode',
     'aza','resetaza','setaza','ppprivacy','gcaddprivacy','dlvo','update',
-    'allgroups','mode','chatbot','alive','online','botstatus','status','runtime','bancheck',
+    'allgroups','mode','chatbot','botstatus','status','runtime','bancheck',
     'fbpageid','fbpage','fbaccesstoken','fbtoken',
     'chatteach','chatunteach','chatfact','chatforget','chatlist','chatpersona','chatname','chatreset','chatstatus','hftoken','hfmodel',
     'broadcast',
@@ -480,6 +481,9 @@ async function handleMessage(sock, msg) {
             return handleCodeCmd(plainSock, from, cmd, args, msg, owner)
         }
         // ── Nexray AIs: .aimodels lists them; each one has its own command ──
+        if (imageCmds.has(cmd)) {
+            return handleImages(plainSock, from, cmd, [...args], msg)
+        }
         if (nexAiCmds.has(cmd)) {
             return handleNexAI(plainSock, from, cmd, [...args], msg)
         }
