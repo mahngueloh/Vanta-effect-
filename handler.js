@@ -371,7 +371,9 @@ async function handleMessage(sock, msg) {
 
         const isCmd = body.startsWith(prefix)
         const cmd   = isCmd ? body.slice(prefix.length).trim().split(/\s+/)[0].toLowerCase() : ''
-        const args  = isCmd ? body.slice(prefix.length + cmd.length).trim().split(/\s+/).filter(Boolean) : []
+        // slice off the prefix AND any space after it (". lyrics x") before dropping the command word,
+        // otherwise the first letter of the argument gets eaten.
+        const args  = isCmd ? body.slice(prefix.length).trim().slice(cmd.length).trim().split(/\s+/).filter(Boolean) : []
         // Interactive reply-buttons (spencer-btns' Ping/Menu/etc.) arrive as
         // plain text carrying their id — route them before normal command
         // parsing, and before the AI-auto-reply branch below would otherwise
