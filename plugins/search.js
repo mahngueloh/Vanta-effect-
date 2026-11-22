@@ -21,53 +21,80 @@ async function nexrayLyrics(query, ctx) {
     } catch (e) { console.log('[lyrics] Nexray failed:', e.response?.status || e.message); return null }
 }
 
+// Lyrics: Nexray first, then free sources that don't depend on it (LRCLIB by free text, by
+// "title by artist", lyrics.ovh). Each failure is logged and summarised in the NOT FOUND card.
 async function getLyrics(query, ctx) {
+    const axios = require('axios')
+    const why = []
+    const UA = { 'User-Agent': 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36' }
+    const card = (title, artist, lyr) => {
+        const head = `🎵 *${title}*${artist ? ` — ${artist}` : ''}`
+        const body = lyr.length > 6000 ? lyr.slice(0, 6000) + '\n\n_(truncated — too long)_' : lyr
+        return fmt.box('LYRICS', [head, ``, body])
+    }
+    const clean = t => String(t || '').replace(/\r/g, '').trim()
+
+    // 1. Nexray
     const nx = await nexrayLyrics(query, ctx)
     if (nx) return nx
-    try {
-        const parts  = query.split(' ')
-        const artist = parts[0]
-        const title  = parts.slice(1).join(' ') || parts[0]
+    why.push('nexray: no result')
 
-        // lyrics.ovh — free
-        const res = await fetch(
-            `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`,
-            { signal: AbortSignal.timeout(10000) }
-        )
-        const data = await res.json()
-        if (data.lyrics) {
-            const lyrics = data.lyrics.substring(0, 3000)
-            return fmt.box('LYRICS', [
-                `🎵 *${query}*`,
-                ``,
-                lyrics,
-                data.lyrics.length > 3000 ? `\n_(truncated — too long)_` : null,
-            ].filter(v => v !== null))
-        }
+    // "song by artist" → separate parts
+    const by = query.match(/^(.+?)\s+by\s+(.+)$/i)
+    const guesses = by ? [{ t: by[1], a: by[2] }] : []
 
-        // some-random-api fallback
-        const res2 = await fetch(
-            `https://some-random-api.com/lyrics?title=${encodeURIComponent(query)}`,
-            { signal: AbortSignal.timeout(10000) }
-        )
-        const data2 = await res2.json()
-        if (data2.lyrics) {
-            const lyrics = data2.lyrics.substring(0, 3000)
-            return fmt.box('LYRICS', [
-                `🎵 *${data2.title}* — ${data2.author}`,
-                ``,
-                lyrics,
-            ])
-        }
-        return fmt.box('NOT FOUND', [
-            `❌ Lyrics not found for: *${query}*`,
-            ``,
-            `💡 Try format: *Artist SongName*`,
-            `Example: *.lyrics Adele Hello*`,
-        ])
-    } catch {
-        return fmt.box('ERROR', [`❌ Could not fetch lyrics. Format: *Artist SongName*`])
+    // 2. LRCLIB free-text search (works with just a song name)
+    for (const q of [query, ...(by ? [`${by[2]} ${by[1]}`] : [])]) {
+        try {
+            const r = await axios.get('https://lrclib.net/api/search', { params: { q }, timeout: 15000, headers: UA })
+            const hit = (Array.isArray(r.data) ? r.data : []).find(x => clean(x.plainLyrics).length > 40)
+            if (hit) {
+                if (ctx?.sock && false) {}
+                return card(hit.trackName || query, hit.artistName, clean(hit.plainLyrics))
+            }
+            why.push('lrclib: none')
+        } catch (e) { why.push('lrclib: ' + (e.response?.status || e.code || e.message)); console.log('[lyrics] lrclib failed:', e.message) }
     }
+
+    // 3. Use Nexray's Spotify search to learn the real title + artist, then retry free sources
+    try {
+        const nxm = require('../lib/nexray')
+        const r = await nxm.call('/search/spotify', { params: { q: query }, timeout: 25000 })
+        const arr = r.type === 'json' ? (r.json?.result || r.json?.data || []) : []
+        const first = Array.isArray(arr) ? arr[0] : null
+        const t = first?.title || first?.name || first?.trackName
+        const a = first?.artist || first?.artists || first?.artistName
+        if (t) guesses.unshift({ t, a: Array.isArray(a) ? a.join(', ') : a })
+    } catch (e) { console.log('[lyrics] spotify lookup failed:', e.message) }
+
+    for (const g of guesses) {
+        if (!g.t || !g.a) continue
+        try {
+            const r = await axios.get('https://lrclib.net/api/get', { params: { track_name: g.t, artist_name: g.a }, timeout: 15000, headers: UA })
+            if (clean(r.data?.plainLyrics).length > 40) return card(r.data.trackName || g.t, r.data.artistName || g.a, clean(r.data.plainLyrics))
+        } catch (e) { why.push('lrclib/get: ' + (e.response?.status || e.message)) }
+        try {
+            const r = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(g.a)}/${encodeURIComponent(g.t)}`, { timeout: 15000, headers: UA })
+            if (clean(r.data?.lyrics).length > 40) return card(g.t, g.a, clean(r.data.lyrics))
+        } catch (e) { why.push('lyrics.ovh: ' + (e.response?.status || e.message)) }
+    }
+
+    // 4. Old guess: first word = artist
+    try {
+        const parts = query.split(' ')
+        if (parts.length > 1) {
+            const r = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts.slice(1).join(' '))}`, { timeout: 15000, headers: UA })
+            if (clean(r.data?.lyrics).length > 40) return card(parts.slice(1).join(' '), parts[0], clean(r.data.lyrics))
+        }
+    } catch {}
+
+    console.log('[lyrics] all sources failed:', why.join(' | '))
+    return fmt.box('NOT FOUND', [
+        `❌ Lyrics not found for: *${query}*`,
+        ``,
+        `💡 Try: *.lyrics Artist - Song* (e.g. *.lyrics Toxic - Sick*)`,
+        `_${[...new Set(why)].slice(0, 3).join(' · ')}_`,
+    ])
 }
 
 async function getIMDB(query) {
