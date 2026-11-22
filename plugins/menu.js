@@ -155,7 +155,7 @@ function menuData() {
             'define', 'getpp', 'getabout', 'device', 'dict', 'meaning', 'calc', 'math', 'say', 'react', 'pfp',
         ],
         search: ['lyrics', 'imdb', 'yts', 'gsmarena', 'moviesearch', 'toprated', 'moviedetails'],
-        fun: ['fact', 'facts', 'joke', 'jokes', 'meme', 'memes', 'quotes', 'trivia', 'truth', 'dare', 'tod', 'truthordare', 'truthdetector', 'emojimix'],
+        fun: ['fact', 'facts', 'mock', 'joke', 'jokes', 'meme', 'memes', 'quotes', 'trivia', 'truth', 'dare', 'tod', 'truthordare', 'truthdetector', 'emojimix'],
         games: ['arcade', 'flappy', 'racer', 'snake', 'tetris', 'dino', 'games', 'ttt', 'c4', 'hm', 'guess', 'memory', 'mines', '2048', 'slots', 'rps', 'quiz', 'ans', 'lights', 'slide'],
         religion: ['bible', 'quran'],
         sports: [

@@ -55,6 +55,7 @@ const { gameCmds, handleGame }   = require('./plugins/games')
 const { arcadeCmds, handleArcade } = require('./plugins/arcade')
 const { nexAiCmds, handleNexAI } = require('./plugins/nexrayAI')
 const { imageCmds, handleImages } = require('./plugins/imageSearch')
+const { mockCmds, handleMock } = require('./plugins/mock')
 const { codeCmds, handleCodeCmd } = require('./plugins/codeShare')
 const { aiReply }               = require('./plugins/aiChat')
 const { selfCodeReply }         = require('./plugins/selfCode')
@@ -481,6 +482,9 @@ async function handleMessage(sock, msg) {
             return handleCodeCmd(plainSock, from, cmd, args, msg, owner)
         }
         // ── Nexray AIs: .aimodels lists them; each one has its own command ──
+        if (mockCmds.has(cmd)) {
+            return handleMock(plainSock, from, cmd, args, msg, sender)
+        }
         if (imageCmds.has(cmd)) {
             return handleImages(plainSock, from, cmd, [...args], msg)
         }
