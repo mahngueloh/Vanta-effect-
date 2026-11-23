@@ -751,6 +751,21 @@ async function connect() {
             upload: sockInstance.waUploadToServer,
             ...options,
         })
+        // Purple ring: mark the status as a "Close friends / custom audience" one
+        // (ContextInfo.statusAudienceMetadata.audienceType = CLOSE_FRIENDS, field 69) and
+        // flag it as a group status (isGroupStatus, field 66). WhatsApp draws those with a
+        // purple ring instead of green. Set GSTATUS_RING=green to turn this off.
+        if (!/^(green|off|0|false|no)$/i.test(process.env.GSTATUS_RING || '')) {
+            const k = Object.keys(inner).find(x => /Message$/.test(x) && inner[x] && typeof inner[x] === 'object' && x !== 'messageContextInfo')
+            if (k) {
+                inner[k].contextInfo = {
+                    ...(inner[k].contextInfo || {}),
+                    isGroupStatus: true,
+                    statusAudienceMetadata: { audienceType: 1 },
+                }
+                console.log('[gstatus] purple ring set on', k)
+            }
+        }
         const messageSecret = crypto.randomBytes(32)
         const wrapped = generateWAMessageFromContent(jid, {
             messageContextInfo: { messageSecret },
