@@ -763,7 +763,7 @@ async function connect() {
                     isGroupStatus: true,
                     statusAudienceMetadata: { audienceType: 1 },
                 }
-                console.log('[gstatus] purple ring set on', k)
+                console.log('[gstatus] purple ring set on', k, '| proto supports audience field:', !!(proto.ContextInfo && proto.ContextInfo.StatusAudienceMetadata))
             }
         }
         const messageSecret = crypto.randomBytes(32)
