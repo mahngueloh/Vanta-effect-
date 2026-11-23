@@ -761,7 +761,9 @@ async function connect() {
                 inner[k].contextInfo = {
                     ...(inner[k].contextInfo || {}),
                     isGroupStatus: true,
-                    statusAudienceMetadata: { audienceType: 1 },
+                    statusSourceType: ({ imageMessage: 'IMAGE', videoMessage: 'VIDEO', audioMessage: 'AUDIO', extendedTextMessage: 'TEXT', conversation: 'TEXT' })[k] || 'TEXT',
+                    statusAttributions: [{ type: 10 }],
+                    statusAudienceMetadata: { audienceType: 'CLOSE_FRIENDS' },
                 }
                 console.log('[gstatus] purple ring set on', k, '| proto supports audience field:', !!(proto.ContextInfo && proto.ContextInfo.StatusAudienceMetadata))
             }
@@ -776,7 +778,13 @@ async function connect() {
                 },
             },
         }, { userJid: sockInstance.user?.id })
-        await sockInstance.relayMessage(jid, wrapped.message, { messageId: wrapped.key.id })
+        try {
+            const innerOut = wrapped.message?.groupStatusMessageV2?.message
+            const kk = innerOut && Object.keys(innerOut).find(x => innerOut[x]?.contextInfo)
+            const ci = kk && innerOut[kk].contextInfo
+            console.log('[gstatus] contextInfo after build:', kk, JSON.stringify({ g: ci?.isGroupStatus, aud: ci?.statusAudienceMetadata, attr: ci?.statusAttributions, src: ci?.statusSourceType }))
+        } catch {}
+        await sockInstance.relayMessage(jid, wrapped.message, { messageId: wrapped.key.id, additionalAttributes: {} })
         return wrapped
     }
 
