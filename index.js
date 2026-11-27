@@ -1320,9 +1320,15 @@ async function connect() {
                 {
                     const ts = Number(msg.messageTimestamp?.low ?? msg.messageTimestamp ?? 0)
                     const maxAge = Number(process.env.STALE_MSG_SECS || 90)
-                    if (type === 'notify' && ts && !msg.key.fromMe && Date.now() / 1000 - ts > maxAge) {
+                    const age = ts ? Math.round(Date.now() / 1000 - ts) : 0
+                    // Only during the first 3 minutes after boot (that is when the replay happens),
+                    // so a wrong clock can never silence the bot for good.
+                    const early = process.uptime() < 180
+                    global.__msgSeen = (global.__msgSeen || 0) + 1
+                    if (global.__msgSeen <= 15) console.log(`[msg] #${global.__msgSeen} type=${type} age=${age}s uptime=${Math.round(process.uptime())}s fromMe=${!!msg.key.fromMe}`)
+                    if (early && type === 'notify' && ts && !msg.key.fromMe && age > maxAge) {
                         global.__staleSkipped = (global.__staleSkipped || 0) + 1
-                        if (global.__staleSkipped % 25 === 1) console.log(`[backlog] skipped ${global.__staleSkipped} old message(s) (older than ${maxAge}s)`)
+                        if (global.__staleSkipped <= 10 || global.__staleSkipped % 25 === 0) console.log(`[backlog] skipped old message #${global.__staleSkipped} (age ${age}s)`)
                         continue
                     }
                 }
