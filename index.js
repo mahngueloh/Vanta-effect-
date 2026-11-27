@@ -1267,7 +1267,7 @@ async function connect() {
                     const poster = msg.key.participant || msg.key.participantAlt || ''
                     console.log(`[status] new status from ${poster || '?'} | lag=${Math.max(0, Math.round(Date.now()/1000 - Number(msg.messageTimestamp || 0)))}s | view=${runtimeSettings.autoviewstatus ? 'ON' : 'OFF'} react=${runtimeSettings.autoreactstatus ? 'ON' : 'OFF'} fromMe=${!!msg.key.fromMe}`)
                     // detached: never block the message loop (commands) on status work
-                    ;(async () => {
+                    global.__statusQ = (global.__statusQ || Promise.resolve()).then(async () => {
                     // view/react first, cache (media download) afterwards
                     if (poster && !msg.key.fromMe && (runtimeSettings.autoviewstatus || runtimeSettings.autoreactstatus)) {
                         const sid = msg.key.id
@@ -1290,7 +1290,8 @@ async function connect() {
                                     } catch (e2) { console.error('[status] receipt failed:', e2.message) }
                                 }
                             }
-                            if (runtimeSettings.autoreactstatus) {
+                            const ageS = Date.now() / 1000 - Number(msg.messageTimestamp?.low ?? msg.messageTimestamp ?? 0)
+                            if (runtimeSettings.autoreactstatus && !(ageS > 900)) {
                                 try {
                                     await new Promise(r => setTimeout(r, 1500 + Math.random() * 2500))
                                     const pool = STATUS_EMOJIS.length ? STATUS_EMOJIS : ['❤️']
@@ -1308,8 +1309,22 @@ async function connect() {
                         }
                     }
                     cacheForAntiDelete(jid, msg, poster).catch(() => {})
-                    })().catch(e => console.error('[status] error:', e.message))
+                    }).catch(e => console.error('[status] error:', e.message))   // serial queue: a backlog of statuses never bursts
                     continue
+                }
+
+                // Offline backlog: right after a (re)deploy WhatsApp replays everything sent while the
+                // bot was down. Processing hundreds of old messages (media downloads, AI replies,
+                // stale commands) is what makes the bot feel slow for the first minutes — and
+                // answering a command from hours ago is useless anyway. Skip anything too old.
+                {
+                    const ts = Number(msg.messageTimestamp?.low ?? msg.messageTimestamp ?? 0)
+                    const maxAge = Number(process.env.STALE_MSG_SECS || 90)
+                    if (type === 'notify' && ts && !msg.key.fromMe && Date.now() / 1000 - ts > maxAge) {
+                        global.__staleSkipped = (global.__staleSkipped || 0) + 1
+                        if (global.__staleSkipped % 25 === 1) console.log(`[backlog] skipped ${global.__staleSkipped} old message(s) (older than ${maxAge}s)`)
+                        continue
+                    }
                 }
 
                 // Only 'notify' is a genuinely live, real-time message. 'append'
@@ -1345,7 +1360,7 @@ async function connect() {
 
                 // ── Anti-delete cache ─────────────────────────────────────────
                 console.log('[jid-debug] SAVING jid=' + jid + ' key.id=' + msg.key.id + ' fullKey=' + JSON.stringify(msg.key))
-                await cacheForAntiDelete(jid, msg, sender)
+                cacheForAntiDelete(jid, msg, sender).catch(() => {})   // detached: a slow media download must never delay commands
 
                 if (msg.key.fromMe) {
                     const b = getBody(msg)
@@ -1362,7 +1377,7 @@ async function connect() {
                 }
 
                 if (runtimeSettings.autoread) {
-                    try { await sockInstance.readMessages([msg.key]) } catch {}
+                    sockInstance.readMessages([msg.key]).catch(() => {})
                 }
                 // Auto-react to messages removed entirely — the feature was
                 // suspected of causing visible reactions in groups, though it
